@@ -1,0 +1,11 @@
+﻿{
+  "profiles": {
+    "Game": {
+      "commandName": "Executable",
+      "workingDirectory": "D:/Project/FLAX/OpenWorldProject/Advanced Terrain Tools",
+      "executablePath": "C:/Program Files (x86)/Flax/Flax_1.11/Binaries/Editor/Win64/Development/FlaxEditor.exe",
+      "commandLineArgs": "-project \"D:/Project/FLAX/OpenWorldProject/Advanced Terrain Tools\"",
+      "nativeDebugging": false
+    }
+  }
+}
