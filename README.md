@@ -38,7 +38,6 @@ Realtime: AutoRebuild, RebuildDebounce
 
 # Workflow
 Add HybridProceduralTerrain to the terrain actor,
-Set SampleSpacing and PatchGrid for world extent,
 Configure noise/shape/erosion/curvature/beach params
 
 Add sculpt entities:
