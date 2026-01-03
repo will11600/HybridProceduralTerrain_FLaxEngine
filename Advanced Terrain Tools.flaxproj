@@ -8,6 +8,9 @@
 	"References": [
 		{
 			"Name": "$(EnginePath)/Flax.flaxproj"
+		},
+		{
+			"Name": "$(ProjectPath)/Plugins/Procedural Graph Core/Procedural Graph Core.flaxproj"
 		}
 	],
 	"MinEngineVersion": "0.0.6194"

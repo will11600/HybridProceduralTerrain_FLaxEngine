@@ -19,6 +19,10 @@ public class AdvancedTerrainToolsEditor : GameModule
 
         options.ScriptingAPI.IgnoreMissingDocumentationWarnings = true;
 
+        options.PublicDependencies.Add(nameof(ProceduralGraphCore));
+
+        options.ScriptingAPI.SystemReferences.Add("System.Threading.Channels");
+
         // Here you can modify the build options for your game module
         // To reference another module use: options.PublicDependencies.Add("Audio");
         // To add C++ define use: options.PublicDefinitions.Add("COMPILE_WITH_FLAX");
