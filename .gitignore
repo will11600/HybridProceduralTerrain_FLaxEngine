@@ -46,3 +46,5 @@ packages/
 
 /Source/Properties
 /Source/obj
+
+*.Gen.cs
