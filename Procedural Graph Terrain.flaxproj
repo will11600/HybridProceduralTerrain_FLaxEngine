@@ -1,0 +1,17 @@
+{
+	"Name": "Procedural Graph Terrain",
+	"Version": "1.0",
+	"Company": "My Company",
+	"Copyright": "",
+	"GameTarget": "ProceduralGraphTerrainTarget",
+	"EditorTarget": "ProceduralGraphTerrainEditorTarget",
+	"References": [
+		{
+			"Name": "$(EnginePath)/Flax.flaxproj"
+		},
+		{
+			"Name": "$(ProjectPath)/Plugins/Procedural Graph Core/Procedural Graph Core.flaxproj"
+		}
+	],
+	"MinEngineVersion": "0.0.6194"
+}

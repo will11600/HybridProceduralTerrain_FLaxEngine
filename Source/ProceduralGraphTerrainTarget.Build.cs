@@ -1,6 +1,6 @@
 using Flax.Build;
 
-public class AdvancedTerrainToolsTarget : GameProjectTarget
+public class ProceduralGraphTerrainTarget : GameProjectTarget
 {
     /// <inheritdoc />
     public override void Init()
