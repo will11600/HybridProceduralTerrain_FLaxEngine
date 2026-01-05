@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using FlaxEngine;
 
-namespace AdvancedTerrainToolsEditor;
+namespace ProceduralGraph.Terrain;
 
 /// <summary>
 /// Int2Enumerator struct.

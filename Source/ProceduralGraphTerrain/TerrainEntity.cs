@@ -4,7 +4,7 @@ using System.Threading;
 using FlaxEngine;
 using ProceduralGraph;
 
-namespace AdvancedTerrainToolsEditor;
+namespace ProceduralGraph.Terrain;
 
 internal sealed class TerrainEntity(Actor actor, IEnumerable<GraphComponent> components, CancellationToken stoppingToken) : 
     RealtimeGraphEntity<TerrainGenerator>(actor, components, stoppingToken)

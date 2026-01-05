@@ -3,7 +3,9 @@ using FlaxEngine;
 using System;
 using System.Buffers;
 
-namespace AdvancedTerrainToolsEditor;
+namespace ProceduralGraph.Terrain;
+
+using TerrainActor = FlaxEngine.Terrain;
 
 internal readonly struct Patch : IDisposable
 {
@@ -21,7 +23,7 @@ internal readonly struct Patch : IDisposable
         Heightmap = ArrayUtils.Rent(SharedPool, resolution, out _heightmap);
     }
 
-    public readonly unsafe bool SetupHeightmap(Terrain terrain)
+    public readonly unsafe bool SetupHeightmap(TerrainActor terrain)
     {
         ArgumentNullException.ThrowIfNull(terrain, nameof(terrain));
         Int2 coordinate = Index;

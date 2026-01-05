@@ -1,7 +1,7 @@
 ﻿using FlaxEngine;
 using System.ComponentModel;
 
-namespace AdvancedTerrainToolsEditor.Brushes;
+namespace ProceduralGraph.Terrain.Brushes;
 
 #if USE_LARGE_WORLDS
 using Real = System.Double;

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace AdvancedTerrainToolsEditor;
+namespace ProceduralGraph.Terrain;
 
 /// <summary>
 /// IHeightmapPostProcess interface.

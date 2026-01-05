@@ -1,6 +1,5 @@
 ﻿#nullable enable
 using FlaxEngine;
-using ProceduralGraph;
 using System;
 using System.Buffers;
 using System.Collections.Concurrent;
@@ -9,7 +8,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace AdvancedTerrainToolsEditor;
+namespace ProceduralGraph.Terrain;
+
+using TerrainActor = FlaxEngine.Terrain;
 
 internal readonly struct TerrainGenerator : IGenerator<TerrainGenerator>, IDisposable
 {
@@ -21,12 +22,12 @@ internal readonly struct TerrainGenerator : IGenerator<TerrainGenerator>, IDispo
     private readonly Memory<float> _heightmap;
     private readonly int _patchStride;
 
-    public Terrain Target { get; }
+    public TerrainActor Target { get; }
     public Int2 Size { get; }
     public TerrainPatches Patches { get; }
     public IEnumerable<GraphComponent> Models { get; }
 
-    public TerrainGenerator(Terrain terrain, IEnumerable<GraphComponent> models)
+    public TerrainGenerator(TerrainActor terrain, IEnumerable<GraphComponent> models)
     {
         Target = terrain ?? throw new ArgumentNullException(nameof(terrain));
         Models = models ?? throw new ArgumentNullException(nameof(models));
@@ -34,7 +35,7 @@ internal readonly struct TerrainGenerator : IGenerator<TerrainGenerator>, IDispo
         _patches = [];
 
         Int2 patchCount = CountPatches(terrain);
-        _patchStride = terrain.ChunkSize * Terrain.PatchEdgeChunksCount;
+        _patchStride = terrain.ChunkSize * TerrainActor.PatchEdgeChunksCount;
         Size = (patchCount * _patchStride) + Int2.One;
         Patches = new TerrainPatches(_patchStride + 1, patchCount);
 
@@ -43,7 +44,7 @@ internal readonly struct TerrainGenerator : IGenerator<TerrainGenerator>, IDispo
 
     public static TerrainGenerator Create(Actor actor, IEnumerable<GraphComponent> components)
     {
-        return new((Terrain)actor, components);
+        return new((TerrainActor)actor, components);
     }
 
     public async Task BuildAsync(CancellationToken cancellationToken)
@@ -122,7 +123,7 @@ internal readonly struct TerrainGenerator : IGenerator<TerrainGenerator>, IDispo
         }
     }
 
-    private static Int2 CountPatches(Terrain terrain)
+    private static Int2 CountPatches(TerrainActor terrain)
     {
         if (terrain.PatchesCount == 0)
         {

@@ -1,6 +1,6 @@
 ﻿using FlaxEngine;
 
-namespace AdvancedTerrainToolsEditor;
+namespace ProceduralGraph.Terrain;
 
 #if USE_LARGE_WORLDS
 using Real = System.Double;

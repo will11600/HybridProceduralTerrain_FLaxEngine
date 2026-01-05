@@ -1,15 +1,16 @@
 ﻿using System.Collections.Generic;
 using System.Threading;
 using FlaxEngine;
-using ProceduralGraph;
 
-namespace AdvancedTerrainToolsEditor;
+namespace ProceduralGraph.Terrain;
+
+using TerrainActor = FlaxEngine.Terrain;
 
 internal sealed class TerrainConverter : IGraphConverter
 {
     public bool CanConvert(Actor actor)
     {
-        return actor is Terrain;
+        return actor is TerrainActor;
     }
 
     public IGraphEntity Convert(Actor actor, IEnumerable<GraphComponent> components, CancellationToken stoppingToken)

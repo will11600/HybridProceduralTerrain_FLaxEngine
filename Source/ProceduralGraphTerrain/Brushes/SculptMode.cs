@@ -1,4 +1,4 @@
-namespace AdvancedTerrainToolsEditor.Brushes;
+namespace ProceduralGraph.Terrain.Brushes;
 
 public enum SculptMode
 {

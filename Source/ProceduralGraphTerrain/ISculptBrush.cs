@@ -1,4 +1,4 @@
-﻿namespace AdvancedTerrainToolsEditor;
+﻿namespace ProceduralGraph.Terrain;
 
 public interface ISculptBrush : ITerrainModifier
 {

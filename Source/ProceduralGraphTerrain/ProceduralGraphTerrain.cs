@@ -1,8 +1,7 @@
 ﻿using FlaxEditor;
 using FlaxEngine;
-using ProceduralGraph;
 
-namespace AdvancedTerrainToolsEditor;
+namespace ProceduralGraph.Terrain;
 
 [PluginLoadOrder(DeinitializeBefore = typeof(GraphLifecycleManager), InitializeAfter = typeof(GraphLifecycleManager))]
 internal sealed class ProceduralGraphTerrain : EditorPlugin

@@ -2,7 +2,7 @@
 using ProceduralGraph;
 using System;
 
-namespace AdvancedTerrainToolsEditor.Brushes;
+namespace ProceduralGraph.Terrain.Brushes;
 
 #if USE_LARGE_WORLDS
 using Real = System.Double;

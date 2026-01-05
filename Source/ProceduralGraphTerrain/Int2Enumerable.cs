@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using FlaxEngine;
 
-namespace AdvancedTerrainToolsEditor;
+namespace ProceduralGraph.Terrain;
 
 internal readonly struct Int2Enumerable : IEnumerable<Int2>
 {

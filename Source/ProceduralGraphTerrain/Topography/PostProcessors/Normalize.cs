@@ -1,9 +1,8 @@
 ﻿using FlaxEngine;
-using ProceduralGraph;
 using System;
 using System.ComponentModel;
 
-namespace AdvancedTerrainToolsEditor.Topography.PostProcessors;
+namespace ProceduralGraph.Terrain.Topography.PostProcessors;
 
 [DisplayName("Normalize")]
 public sealed class Normalize : GraphComponent, ITopographyPostProcessor

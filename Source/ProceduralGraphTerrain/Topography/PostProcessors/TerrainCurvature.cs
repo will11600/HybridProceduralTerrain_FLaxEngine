@@ -2,9 +2,8 @@
 using System.Buffers;
 using System.ComponentModel;
 using FlaxEngine;
-using ProceduralGraph;
 
-namespace AdvancedTerrainToolsEditor.Topography.PostProcessors;
+namespace ProceduralGraph.Terrain.Topography.PostProcessors;
 
 /// <summary>
 /// TerrainCurvature class.

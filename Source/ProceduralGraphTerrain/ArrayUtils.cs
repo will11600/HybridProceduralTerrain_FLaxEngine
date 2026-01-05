@@ -2,7 +2,7 @@
 using System;
 using System.Buffers;
 
-namespace AdvancedTerrainToolsEditor;
+namespace ProceduralGraph.Terrain;
 
 internal static class ArrayUtils
 {

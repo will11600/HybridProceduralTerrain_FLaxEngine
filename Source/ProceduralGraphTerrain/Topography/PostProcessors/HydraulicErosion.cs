@@ -1,10 +1,9 @@
 ﻿using FlaxEngine;
-using ProceduralGraph;
 using System;
 using System.ComponentModel;
 using System.Threading.Tasks;
 
-namespace AdvancedTerrainToolsEditor.Topography.PostProcessors;
+namespace ProceduralGraph.Terrain.Topography.PostProcessors;
 
 /// <summary>
 /// HydraulicErosion class.

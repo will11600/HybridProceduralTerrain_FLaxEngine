@@ -1,6 +1,6 @@
 ﻿using FlaxEngine;
 
-namespace AdvancedTerrainToolsEditor;
+namespace ProceduralGraph.Terrain;
 
 /// <summary>
 /// ITopographyProvider interface.

@@ -1,8 +1,7 @@
-﻿using ProceduralGraph;
-using System;
+﻿using System;
 using System.ComponentModel;
 
-namespace AdvancedTerrainToolsEditor.Topography.PostProcessors;
+namespace ProceduralGraph.Terrain.Topography.PostProcessors;
 
 /// <summary>
 /// ThermalErosion class.
