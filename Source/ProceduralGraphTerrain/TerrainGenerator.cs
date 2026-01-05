@@ -2,24 +2,24 @@
 using FlaxEngine;
 using ProceduralGraph;
 using System;
+using System.Buffers;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using System.Threading.Channels;
 using System.Threading.Tasks;
 
 namespace AdvancedTerrainToolsEditor;
 
-internal readonly struct TerrainGenerator : IGenerator<TerrainGenerator>
+internal readonly struct TerrainGenerator : IGenerator<TerrainGenerator>, IDisposable
 {
-    private static readonly BoundedChannelOptions _channelOptions = new(500)
-    {
-        FullMode = BoundedChannelFullMode.Wait,
-        SingleReader = true,
-        SingleWriter = false
-    };
+    private static ArrayPool<float> SharedPool { get; } = ArrayPool<float>.Shared;
 
-    private readonly Channel<Patch> _channel;
+    private readonly ConcurrentBag<Patch> _patches;
+
+    private readonly float[] _rentedArray;
+    private readonly Memory<float> _heightmap;
+    private readonly int _patchStride;
 
     public Terrain Target { get; }
     public Int2 Size { get; }
@@ -31,37 +31,14 @@ internal readonly struct TerrainGenerator : IGenerator<TerrainGenerator>
         Target = terrain ?? throw new ArgumentNullException(nameof(terrain));
         Models = models ?? throw new ArgumentNullException(nameof(models));
 
-        _channel = Channel.CreateBounded<Patch>(_channelOptions);
+        _patches = [];
 
         Int2 patchCount = CountPatches(terrain);
-        int patchStride = terrain.ChunkSize * Terrain.PatchEdgeChunksCount;
-        Size = (patchCount * patchStride) + Int2.One;
-        Patches = new TerrainPatches(patchStride + 1, patchCount);
-    }
+        _patchStride = terrain.ChunkSize * Terrain.PatchEdgeChunksCount;
+        Size = (patchCount * _patchStride) + Int2.One;
+        Patches = new TerrainPatches(_patchStride + 1, patchCount);
 
-    public async Task BuildAsync(CancellationToken cancellationToken)
-    {
-        Int2Enumerable patches = new(Patches.Count);
-        Task write = WritePatchesAsync(patches, cancellationToken);
-
-        await foreach (Patch patch in _channel.Reader.ReadAllAsync(cancellationToken))
-        {
-            try
-            {
-                if (patch.SetupHeightmap(Target))
-                {
-                    continue;
-                }
-
-                Debug.LogErrorFormat(Target, "Failed to setup patch heightmap ({0}).", patch.Index);
-            }
-            finally
-            {
-                patch.Dispose();
-            }
-        }
-
-        await write;
+        _heightmap = ArrayUtils.Rent(SharedPool, Size.X * Size.Y, out _rentedArray);
     }
 
     public static TerrainGenerator Create(Actor actor, IEnumerable<GraphModel> models)
@@ -69,21 +46,39 @@ internal readonly struct TerrainGenerator : IGenerator<TerrainGenerator>
         return new((Terrain)actor, models);
     }
 
-    private async Task WritePatchesAsync(Int2Enumerable patches, CancellationToken cancellationToken)
+    public async Task BuildAsync(CancellationToken cancellationToken)
     {
-        Exception? exception = null;
+        Int2Enumerable coordEnumerator = new(Patches.Count - Int2.One);
         try
         {
-            await Parallel.ForEachAsync(patches, cancellationToken, GeneratePatchAsync);
-        }
-        catch (Exception ex)
-        {
-            exception = ex;
+            await Parallel.ForEachAsync(coordEnumerator, cancellationToken, GeneratePatchAsync);
+
+            foreach (ITopographyPostProcessor postProcessor in Models.OfType<ITopographyPostProcessor>())
+            {
+                postProcessor.Apply(_heightmap, Size.X);
+            }
+
+            await Parallel.ForEachAsync(_patches, cancellationToken, SetupHeightmapAsync);
         }
         finally
         {
-            _channel.Writer.Complete(exception);
+            foreach (Patch patch in _patches)
+            {
+                patch.Dispose();
+            }
         }
+    }
+
+    private ValueTask SetupHeightmapAsync(Patch patch, CancellationToken cancellationToken)
+    {
+        SplitPatch(patch);
+
+        if (patch.SetupHeightmap(Target))
+        {
+            return ValueTask.CompletedTask;
+        }
+
+        throw new InvalidOperationException($"Failed to setup patch heightmap ({patch.Index})");
     }
 
     private async ValueTask GeneratePatchAsync(Int2 index, CancellationToken cancellationToken)
@@ -116,12 +111,9 @@ internal readonly struct TerrainGenerator : IGenerator<TerrainGenerator>
                 }
             }
 
-            foreach (ITopographyPostProcessor effect in Models.OfType<ITopographyPostProcessor>())
-            {
-                effect.Apply(patch.Heightmap, Patches.Size);
-            }
+            StitchPatch(patch);
 
-            await _channel.Writer.WriteAsync(patch, cancellationToken);
+            _patches.Add(patch);
         }
         catch
         {
@@ -154,5 +146,49 @@ internal readonly struct TerrainGenerator : IGenerator<TerrainGenerator>
         max += Int2.One;
 
         return max - min;
+    }
+
+    private void StitchPatch(Patch patch)
+    {
+        int startX = patch.Index.X * _patchStride;
+        int startY = patch.Index.Y * _patchStride;
+
+        Span<float> patchSpan = patch.Heightmap.Span;
+        Span<float> heightmapSpan = _heightmap.Span;
+
+        for (int z = 0; z < Patches.Size; z++)
+        {
+            Span<float> sourceRow = patchSpan.Slice(z * Patches.Size, Patches.Size);
+
+            int destIndex = ((startY + z) * Size.X) + startX;
+
+            Span<float> destinationRow = heightmapSpan.Slice(destIndex, Patches.Size);
+            sourceRow.CopyTo(destinationRow);
+        }
+    }
+
+    private void SplitPatch(Patch patch)
+    {
+        int startX = patch.Index.X * _patchStride;
+        int startY = patch.Index.Y * _patchStride;
+
+        Span<float> patchSpan = patch.Heightmap.Span;
+        Span<float> heightmapSpan = _heightmap.Span;
+
+        for (int z = 0; z < Patches.Size; z++)
+        {
+            int srcIndex = ((startY + z) * Size.X) + startX;
+            Span<float> sourceRow = heightmapSpan.Slice(srcIndex, Patches.Size);
+            Span<float> destinationRow = patchSpan.Slice(z * Patches.Size, Patches.Size);
+            sourceRow.CopyTo(destinationRow);
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_rentedArray is { })
+        {
+            SharedPool.Return(_rentedArray);
+        }
     }
 }
