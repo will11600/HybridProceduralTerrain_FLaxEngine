@@ -24,9 +24,9 @@ internal readonly struct TerrainGenerator : IGenerator<TerrainGenerator>, IDispo
     public Terrain Target { get; }
     public Int2 Size { get; }
     public TerrainPatches Patches { get; }
-    public IEnumerable<GraphModel> Models { get; }
+    public IEnumerable<GraphComponent> Models { get; }
 
-    public TerrainGenerator(Terrain terrain, IEnumerable<GraphModel> models)
+    public TerrainGenerator(Terrain terrain, IEnumerable<GraphComponent> models)
     {
         Target = terrain ?? throw new ArgumentNullException(nameof(terrain));
         Models = models ?? throw new ArgumentNullException(nameof(models));
@@ -41,9 +41,9 @@ internal readonly struct TerrainGenerator : IGenerator<TerrainGenerator>, IDispo
         _heightmap = ArrayUtils.Rent(SharedPool, Size.X * Size.Y, out _rentedArray);
     }
 
-    public static TerrainGenerator Create(Actor actor, IEnumerable<GraphModel> models)
+    public static TerrainGenerator Create(Actor actor, IEnumerable<GraphComponent> components)
     {
-        return new((Terrain)actor, models);
+        return new((Terrain)actor, components);
     }
 
     public async Task BuildAsync(CancellationToken cancellationToken)

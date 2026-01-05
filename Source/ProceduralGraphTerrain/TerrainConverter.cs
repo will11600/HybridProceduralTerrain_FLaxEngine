@@ -12,8 +12,8 @@ internal sealed class TerrainConverter : IGraphConverter
         return actor is Terrain;
     }
 
-    public IGraphNode Convert(Actor actor, IEnumerable<GraphModel> models, CancellationToken stoppingToken)
+    public IGraphEntity Convert(Actor actor, IEnumerable<GraphComponent> components, CancellationToken stoppingToken)
     {
-        return new TerrainNode(actor, models, stoppingToken);
+        return new TerrainEntity(actor, components, stoppingToken);
     }
 }

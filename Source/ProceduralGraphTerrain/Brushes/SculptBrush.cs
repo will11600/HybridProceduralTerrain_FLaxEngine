@@ -13,7 +13,7 @@ using Real = System.Single;
 /// <summary>
 /// SculptBrush class.
 /// </summary>
-public abstract class SculptBrush : GraphModel, ITerrainModifier, ISculptBrush
+public abstract class SculptBrush : GraphComponent, ITerrainModifier, ISculptBrush
 {
     private Transform _transform;
     public Transform Transform

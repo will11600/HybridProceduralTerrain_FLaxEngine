@@ -6,7 +6,7 @@ using System.ComponentModel;
 namespace AdvancedTerrainToolsEditor.Topography.PostProcessors;
 
 [DisplayName("Normalize")]
-public sealed class Normalize : GraphModel, ITopographyPostProcessor
+public sealed class Normalize : GraphComponent, ITopographyPostProcessor
 {
     private float _min = -1.0f;
     public float Min

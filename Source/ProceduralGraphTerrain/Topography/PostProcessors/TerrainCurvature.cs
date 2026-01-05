@@ -10,7 +10,7 @@ namespace AdvancedTerrainToolsEditor.Topography.PostProcessors;
 /// TerrainCurvature class.
 /// </summary>
 [DisplayName("Terrain Curvature")]
-public sealed class TerrainCurvature : GraphModel, ITopographyPostProcessor
+public sealed class TerrainCurvature : GraphComponent, ITopographyPostProcessor
 {
     private float _ridgeGain = 0.35f;
     /// <summary>

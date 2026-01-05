@@ -6,13 +6,14 @@ using ProceduralGraph;
 
 namespace AdvancedTerrainToolsEditor;
 
-internal sealed class TerrainNode(Actor actor, IEnumerable<GraphModel> models, CancellationToken stoppingToken) : RealtimeGraphNode<TerrainGenerator>(actor, models, stoppingToken)
+internal sealed class TerrainEntity(Actor actor, IEnumerable<GraphComponent> components, CancellationToken stoppingToken) : 
+    RealtimeGraphEntity<TerrainGenerator>(actor, components, stoppingToken)
 {
     protected override void OnUpdate()
     {
         base.OnUpdate();
 
-        foreach (ISculptBrush brush in Models.OfType<ISculptBrush>())
+        foreach (ISculptBrush brush in Components.OfType<ISculptBrush>())
         {
             brush.Update();
         }

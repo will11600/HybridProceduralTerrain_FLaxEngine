@@ -10,7 +10,7 @@ namespace AdvancedTerrainToolsEditor.Topography.PostProcessors;
 /// HydraulicErosion class.
 /// </summary>
 [DisplayName("Hydraulic Erosion")]
-public sealed class HydraulicErosion : GraphModel, ITopographyPostProcessor
+public sealed class HydraulicErosion : GraphComponent, ITopographyPostProcessor
 {
     private const float MinSlope = 0.01f;
     private const float SedimentCapacityFactor = 4.0f;

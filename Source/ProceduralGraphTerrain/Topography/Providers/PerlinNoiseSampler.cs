@@ -6,7 +6,7 @@ using System.ComponentModel;
 namespace AdvancedTerrainToolsEditor.Topography.Providers;
 
 [DisplayName("Perlin Noise Layer")]
-public sealed class PerlinNoiseSampler : GraphModel, ITopographyProvider
+public sealed class PerlinNoiseSampler : GraphComponent, ITopographyProvider
 {
     private const float MaxOffset = 1_000.0f;
 

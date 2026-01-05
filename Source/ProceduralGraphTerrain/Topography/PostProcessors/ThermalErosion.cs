@@ -8,7 +8,7 @@ namespace AdvancedTerrainToolsEditor.Topography.PostProcessors;
 /// ThermalErosion class.
 /// </summary>
 [DisplayName("Thermal Erosion")]
-public sealed class ThermalErosion : GraphModel, ITopographyPostProcessor
+public sealed class ThermalErosion : GraphComponent, ITopographyPostProcessor
 {
     private float _strength = 0.3f;
     /// <summary>

@@ -10,10 +10,10 @@ internal sealed class TerrainEditor : ProceduralActorEditor
     public override void Initialize(LayoutElementsContainer layout)
     {
         base.Initialize(layout);
-        if (TryFindNode(out IGraphNode? node))
+        if (TryFindEntity(out IGraphEntity? entity))
         {
             var group = layout.Group("Procedural Generation");
-            group.Property("Models", node.ValueContainer);
+            group.Property("Components", entity.ValueContainer);
         }
     }
 }
