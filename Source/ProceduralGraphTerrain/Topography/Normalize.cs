@@ -2,7 +2,7 @@
 using System;
 using System.ComponentModel;
 
-namespace ProceduralGraph.Terrain.Topography.PostProcessors;
+namespace ProceduralGraph.Terrain.Topography;
 
 [DisplayName("Normalize")]
 public sealed class Normalize : GraphComponent, ITopographyPostProcessor

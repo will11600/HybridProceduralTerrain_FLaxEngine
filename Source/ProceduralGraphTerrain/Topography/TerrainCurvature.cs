@@ -3,7 +3,7 @@ using System.Buffers;
 using System.ComponentModel;
 using FlaxEngine;
 
-namespace ProceduralGraph.Terrain.Topography.PostProcessors;
+namespace ProceduralGraph.Terrain.Topography;
 
 /// <summary>
 /// TerrainCurvature class.

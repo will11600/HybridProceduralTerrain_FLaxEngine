@@ -3,7 +3,7 @@ using System;
 using System.ComponentModel;
 using System.Threading.Tasks;
 
-namespace ProceduralGraph.Terrain.Topography.PostProcessors;
+namespace ProceduralGraph.Terrain.Topography;
 
 /// <summary>
 /// HydraulicErosion class.

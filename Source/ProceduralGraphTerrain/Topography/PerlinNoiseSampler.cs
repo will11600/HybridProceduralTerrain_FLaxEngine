@@ -2,7 +2,7 @@
 using FlaxEngine.Utilities;
 using System.ComponentModel;
 
-namespace ProceduralGraph.Terrain.Topography.Providers;
+namespace ProceduralGraph.Terrain.Topography;
 
 [DisplayName("Perlin Noise Layer")]
 public sealed class PerlinNoiseSampler : GraphComponent, ITopographyProvider

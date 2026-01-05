@@ -1,4 +1,4 @@
-﻿namespace ProceduralGraph.Terrain.Topography.Providers;
+﻿namespace ProceduralGraph.Terrain.Topography;
 
 public enum BlendMode : byte
 { 
