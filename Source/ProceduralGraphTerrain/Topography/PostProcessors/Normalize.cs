@@ -1,0 +1,56 @@
+﻿using FlaxEngine;
+using ProceduralGraph;
+using System;
+using System.ComponentModel;
+
+namespace AdvancedTerrainToolsEditor.Topography.PostProcessors;
+
+[DisplayName("Normalize")]
+public sealed class Normalize : GraphModel, ITopographyPostProcessor
+{
+    private float _min = -1.0f;
+    public float Min
+    {
+        get => _min;
+        set => RaiseAndSetIfChanged(ref _min, in value);
+    }
+
+    private float _max = 1.0f;
+    public float Max
+    {
+        get => _max;
+        set => RaiseAndSetIfChanged(ref _max, in value);
+    }
+
+    private float _exponent = 1.0f;
+    [Limit(1.0f)]
+    public float Exponent
+    {
+        get => _exponent;
+        set => RaiseAndSetIfChanged(ref _exponent, in value);
+    }
+
+    public void Apply(Memory<float> heightmap, int size)
+    {
+        float min = float.MaxValue;
+        float max = float.MinValue;
+
+        Span<float> span = heightmap.Span;
+
+        for (int i = 0; i < heightmap.Length; i++)
+        {
+            ref readonly float height = ref span[i];
+            min = height < min ? height : min;
+            max = height > max ? height : max;
+        }
+
+        for (int i = 0; i < heightmap.Length; i++)
+        {
+            ref float height = ref span[i];
+            float normalizedHeight = Mathf.InverseLerp(min, max, height);
+            float heightPowN = Mathf.Pow(normalizedHeight, Exponent);
+            height = Mathf.Lerp(Min, Max, heightPowN);
+        }
+    }
+}
+
