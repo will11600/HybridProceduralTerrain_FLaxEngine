@@ -1,129 +1,146 @@
 ﻿#nullable enable
 using FlaxEngine;
 using System;
-using System.Buffers;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 
 namespace ProceduralGraph.Terrain;
 
-using TerrainActor = FlaxEngine.Terrain;
-
-internal readonly struct TerrainGenerator : IGenerator<TerrainGenerator>, IDisposable
+internal sealed class TerrainGenerator : IGenerator<TerrainGenerator>, IDisposable
 {
-    private static ArrayPool<float> SharedPool { get; } = ArrayPool<float>.Shared;
+    private static readonly BoundedChannelOptions _boundedChannelOptions = new(500)
+    {
+        SingleReader = true,
+        SingleWriter = false,
+        AllowSynchronousContinuations = false,
+        FullMode = BoundedChannelFullMode.Wait
+    };
 
-    private readonly ConcurrentBag<Patch> _patches;
-
-    private readonly float[] _rentedArray;
-    private readonly Memory<float> _heightmap;
+    private readonly Channel<IPatchMap> _patchMaps;
+    private readonly FatPointer<float> _heightMap;
     private readonly int _patchStride;
+    private bool _disposed;
 
-    public TerrainActor Target { get; }
+    private readonly ImmutableArray<ITopographyProvider> _topographyProviders;
+    private readonly ImmutableArray<ITopographyPostProcessor> _topographyPostProcessors;
+
+    public FlaxEngine.Terrain Target { get; }
     public Int2 Size { get; }
     public TerrainPatches Patches { get; }
-    public IEnumerable<GraphComponent> Models { get; }
 
-    public TerrainGenerator(TerrainActor terrain, IEnumerable<GraphComponent> models)
+    public TerrainGenerator(FlaxEngine.Terrain terrain, IEnumerable<GraphComponent> models)
     {
         Target = terrain ?? throw new ArgumentNullException(nameof(terrain));
-        Models = models ?? throw new ArgumentNullException(nameof(models));
 
-        _patches = [];
+        ArgumentNullException.ThrowIfNull(models, nameof(models));
+        _topographyProviders = [.. models.OfType<ITopographyProvider>()];
+        _topographyPostProcessors = [.. models.OfType<ITopographyPostProcessor>()];
+
+        _patchMaps = Channel.CreateBounded<IPatchMap>(_boundedChannelOptions);
 
         Int2 patchCount = CountPatches(terrain);
-        _patchStride = terrain.ChunkSize * TerrainActor.PatchEdgeChunksCount;
+        _patchStride = terrain.ChunkSize * FlaxEngine.Terrain.PatchEdgeChunksCount;
         Size = (patchCount * _patchStride) + Int2.One;
         Patches = new TerrainPatches(_patchStride + 1, patchCount);
 
-        _heightmap = ArrayUtils.Rent(SharedPool, Size.X * Size.Y, out _rentedArray);
+        _heightMap = new FatPointer<float>(Size.X * Size.Y);
+
+        Scripting.Update += OnUpdate;
     }
 
     public static TerrainGenerator Create(Actor actor, IEnumerable<GraphComponent> components)
     {
-        return new((TerrainActor)actor, components);
+        return new((FlaxEngine.Terrain)actor, components);
+    }
+
+    private void OnUpdate()
+    {
+        long startTime = DateTime.Now.Ticks;
+        long timeBudget = 5 * 10000;
+        while ((DateTime.Now.Ticks - startTime) < timeBudget && _patchMaps.Reader.TryRead(out IPatchMap? patchMap))
+        {
+            try
+            {
+                patchMap.Setup(Target);
+            }
+            finally
+            {
+                patchMap.Dispose();
+            }
+        }
     }
 
     public async Task BuildAsync(CancellationToken cancellationToken)
     {
         Int2Enumerable coordEnumerator = new(Patches.Count);
-        try
-        {
-            await Parallel.ForEachAsync(coordEnumerator, cancellationToken, GeneratePatchAsync);
-
-            foreach (ITopographyPostProcessor postProcessor in Models.OfType<ITopographyPostProcessor>())
-            {
-                postProcessor.Apply(_heightmap, Size.X);
-            }
-
-            await Parallel.ForEachAsync(_patches, cancellationToken, SetupHeightmapAsync);
-        }
-        finally
-        {
-            foreach (Patch patch in _patches)
-            {
-                patch.Dispose();
-            }
-        }
+        await Parallel.ForEachAsync(coordEnumerator, cancellationToken, BuildPatchAsync);
+        ApplyPostProcessors((Span<float>)_heightMap);
+        await Parallel.ForEachAsync(coordEnumerator, cancellationToken, SetupPatchMapsAsync);
+        _patchMaps.Writer.Complete();
+        await _patchMaps.Reader.Completion;
     }
 
-    private ValueTask SetupHeightmapAsync(Patch patch, CancellationToken cancellationToken)
+    private unsafe ValueTask BuildPatchAsync(Int2 patchCoord, CancellationToken cancellationToken)
     {
-        SplitPatch(patch);
+        Int2 start = patchCoord * _patchStride;
+        Int2 end = start + Patches.Size;
 
-        if (patch.SetupHeightmap(Target))
+        float invSizeX = 1.0f / Size.X;
+        float invSizeY = 1.0f / Size.Y;
+
+        float* rawBuffer = _heightMap.Buffer;
+        int totalWidth = Size.X;
+
+        for (int y = start.Y; y < end.Y; y++)
         {
-            return ValueTask.CompletedTask;
-        }
+            cancellationToken.ThrowIfCancellationRequested();
 
-        throw new InvalidOperationException($"Failed to setup patch heightmap ({patch.Index})");
-    }
+            float v = y * invSizeY;
+            int rowOffset = y * totalWidth;
 
-    private async ValueTask GeneratePatchAsync(Int2 index, CancellationToken cancellationToken)
-    {
-        Patch patch = new(index, Patches.Size);
-        Span<float> heightmap = patch.Heightmap.Span;
-
-        Int2 offset = index * (Patches.Size - 1);
-
-        try
-        {
-            for (int i = 0; i < patch.Heightmap.Length; i++)
+            for (int x = start.X; x < end.X; x++)
             {
-                int x = i % Patches.Size;
-                int z = i / Patches.Size;
-
-                if (x == 0)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                }
-
-                float u = (offset.X + x) / (float)Size.X;
-                float v = (offset.Y + z) / (float)Size.Y;
-
-                ref float height = ref heightmap[i];
-                height = default;
-                foreach (ITopographyProvider layer in Models.OfType<ITopographyProvider>())
+                float u = x * invSizeX;
+                ref float height = ref rawBuffer[rowOffset + x];
+                foreach (ITopographyProvider layer in _topographyProviders)
                 {
                     layer.GetHeight(u, v, ref height);
                 }
             }
+        }
 
-            StitchPatch(patch);
+        return ValueTask.CompletedTask;
+    }
 
-            _patches.Add(patch);
+    private void ApplyPostProcessors(Span<float> heightmap)
+    {
+        foreach (ITopographyPostProcessor postProcessor in _topographyPostProcessors)
+        {
+            postProcessor.Apply(heightmap, Size.X);
+        }
+    }
+
+    private unsafe ValueTask SetupPatchMapsAsync(Int2 patchCoord, CancellationToken cancellationToken)
+    {
+        PatchHeightMap patchHeightMap = new(patchCoord, Patches.Size);
+        try
+        {
+            SplitPatch(_heightMap.Buffer, Size.X, patchHeightMap.HeightMap, Patches.Size, patchCoord * _patchStride);
+            return _patchMaps.Writer.WriteAsync(patchHeightMap, cancellationToken);
         }
         catch
         {
-            patch.Dispose();
+            patchHeightMap.Dispose();
             throw;
         }
     }
 
-    private static Int2 CountPatches(TerrainActor terrain)
+    private static Int2 CountPatches(FlaxEngine.Terrain terrain)
     {
         if (terrain.PatchesCount == 0)
         {
@@ -149,47 +166,36 @@ internal readonly struct TerrainGenerator : IGenerator<TerrainGenerator>, IDispo
         return max - min;
     }
 
-    private void StitchPatch(Patch patch)
+    private static unsafe void SplitPatch<T>(T* srcBuffer, int srcWidth, T* dstBuffer, int dstWidth, Int2 offset) where T : unmanaged
     {
-        int startX = patch.Index.X * _patchStride;
-        int startY = patch.Index.Y * _patchStride;
-
-        Span<float> patchSpan = patch.Heightmap.Span;
-        Span<float> heightmapSpan = _heightmap.Span;
-
-        for (int z = 0; z < Patches.Size; z++)
+        nuint rowByteCount = (nuint)(dstWidth * sizeof(T));
+        for (int y = 0; y < dstWidth; y++)
         {
-            Span<float> sourceRow = patchSpan.Slice(z * Patches.Size, Patches.Size);
-
-            int destIndex = ((startY + z) * Size.X) + startX;
-
-            Span<float> destinationRow = heightmapSpan.Slice(destIndex, Patches.Size);
-            sourceRow.CopyTo(destinationRow);
+            T* srcRow = srcBuffer + (((offset.Y + y) * srcWidth) + offset.X);
+            T* dstRow = dstBuffer + (y * dstWidth);
+            NativeMemory.Copy(srcRow, dstRow, rowByteCount);
         }
     }
 
-    private void SplitPatch(Patch patch)
+    private void Dispose(bool disposing)
     {
-        int startX = patch.Index.X * _patchStride;
-        int startY = patch.Index.Y * _patchStride;
-
-        Span<float> patchSpan = patch.Heightmap.Span;
-        Span<float> heightmapSpan = _heightmap.Span;
-
-        for (int z = 0; z < Patches.Size; z++)
+        if (_disposed)
         {
-            int srcIndex = ((startY + z) * Size.X) + startX;
-            Span<float> sourceRow = heightmapSpan.Slice(srcIndex, Patches.Size);
-            Span<float> destinationRow = patchSpan.Slice(z * Patches.Size, Patches.Size);
-            sourceRow.CopyTo(destinationRow);
+            return;
         }
+
+        if (disposing)
+        {
+            Scripting.Update -= OnUpdate;
+            _heightMap.Dispose();
+        }
+
+        _disposed = true;
     }
 
     public void Dispose()
     {
-        if (_rentedArray is { })
-        {
-            SharedPool.Return(_rentedArray);
-        }
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
     }
 }
