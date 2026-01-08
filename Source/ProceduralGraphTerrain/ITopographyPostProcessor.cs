@@ -1,11 +1,9 @@
-﻿using System;
-
-namespace ProceduralGraph.Terrain;
+﻿namespace ProceduralGraph.Terrain;
 
 /// <summary>
-/// IHeightmapPostProcess interface.
+/// IHeightmapPostProcessor interface.
 /// </summary>
 public interface ITopographyPostProcessor
 {
-    void Apply(Memory<float> heightmap, int size);
+    unsafe void Apply(FlaxEngine.Terrain terrain, float* heightMapPtr, int heightMapLength, int width);
 }
