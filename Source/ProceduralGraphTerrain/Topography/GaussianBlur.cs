@@ -4,9 +4,9 @@ using System.Runtime.InteropServices;
 
 namespace ProceduralGraph.Terrain.Topography;
 
-internal unsafe sealed class GaussianBlur(float* pSource, int length, int radius, float sigma) : IDisposable
+internal unsafe sealed class GaussianBlur(FatPointer<float> heightMap, int radius, float sigma) : IDisposable
 {
-    public float* SourcePtr { get; } = pSource;
+    public float* SourcePtr { get; } = heightMap.Buffer;
 
     public required int Width { get; init; }
 
@@ -14,7 +14,7 @@ internal unsafe sealed class GaussianBlur(float* pSource, int length, int radius
 
     public int Radius { get; } = radius;
 
-    private readonly float* _tempPtr = (float*)NativeMemory.Alloc((nuint)(length * sizeof(float)));
+    private readonly float* _tempPtr = (float*)NativeMemory.Alloc((nuint)(heightMap.Length * sizeof(float)));
 
     private readonly float* _kernelPtr = CreateGaussianKernel(radius, sigma);
 

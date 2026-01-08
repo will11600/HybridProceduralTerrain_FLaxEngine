@@ -29,21 +29,21 @@ public sealed class NormalizeProcessor : GraphComponent, ITopographyPostProcesso
         set => RaiseAndSetIfChanged(ref _exponent, in value);
     }
 
-    public unsafe void Apply(FlaxEngine.Terrain terrain, float* heightMapPtr, int heightMapLength, int width)
+    public unsafe void Apply(FlaxEngine.Terrain terrain, FatPointer<float> heightMap, int width)
     {
         float min = float.MaxValue;
         float max = float.MinValue;
 
-        for (int i = 0; i < heightMapLength; i++)
+        for (int i = 0; i < heightMap.Length; i++)
         {
-            ref readonly float height = ref heightMapPtr[i];
+            ref readonly float height = ref heightMap.Buffer[i];
             min = height < min ? height : min;
             max = height > max ? height : max;
         }
 
-        for (int i = 0; i < heightMapLength; i++)
+        for (int i = 0; i < heightMap.Length; i++)
         {
-            ref float height = ref heightMapPtr[i];
+            ref float height = ref heightMap.Buffer[i];
             float normalizedHeight = Mathf.InverseLerp(min, max, height);
             float heightPowN = Mathf.Pow(normalizedHeight, Exponent);
             height = Mathf.Lerp(Min, Max, heightPowN);

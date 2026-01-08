@@ -92,21 +92,16 @@ public sealed class HydraulicErosionProcessor : GraphComponent, ITopographyPostP
         set => RaiseAndSetIfChanged(ref _maxLifetime, in value);
     }
 
-    public unsafe void Apply(FlaxEngine.Terrain terrain, Span<float> heightMap, int width)
+    public unsafe void Apply(FlaxEngine.Terrain terrain, FatPointer<float> heightMap, int width)
     {
-        
-    }
-
-    public unsafe void Apply(FlaxEngine.Terrain terrain, float* heightMapPtr, int heightMapLength, int width)
-    {
-        if (heightMapPtr == null || width <= 0)
+        if (heightMap.Buffer == null || width <= 0)
         {
             return;
         }
 
-        int height = heightMapLength / width;
+        int height = heightMap.Length / width;
 
-        HydraulicErosion erosion = new(heightMapPtr)
+        HydraulicErosion erosion = new(heightMap.Buffer)
         {
             Width = width,
             Height = height,

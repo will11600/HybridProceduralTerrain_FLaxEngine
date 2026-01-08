@@ -36,17 +36,17 @@ public sealed class GaussianBlurProcessor : GraphComponent, ITopographyPostProce
         set => RaiseAndSetIfChanged(ref _sigma, ref value);
     }
 
-    public unsafe void Apply(FlaxEngine.Terrain terrain, float* heightMapPtr, int heightMapLength, int width)
+    public unsafe void Apply(FlaxEngine.Terrain terrain, FatPointer<float> heightMap, int width)
     {
-        if (heightMapPtr == null || width <= 0)
+        if (heightMap.Buffer == null || width <= 0)
         {
             return;
         }
 
-        int height = heightMapLength / width;
+        int height = heightMap.Length / width;
         int radius = Mathf.Clamp(_blurRadius, 1, 50);
 
-        using GaussianBlur blur = new(heightMapPtr, heightMapLength, radius, _sigma)
+        using GaussianBlur blur = new(heightMap, radius, _sigma)
         {
             Width = width,
             Height = height

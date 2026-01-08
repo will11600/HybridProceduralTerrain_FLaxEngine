@@ -50,16 +50,16 @@ public sealed class ThermalErosionProcessor : GraphComponent, ITopographyPostPro
         set => RaiseAndSetIfChanged(ref _strength, in value);
     }
 
-    public unsafe void Apply(FlaxEngine.Terrain terrain, float* heightMapPtr, int heightMapLength, int width)
+    public unsafe void Apply(FlaxEngine.Terrain terrain, FatPointer<float> heightMap, int width)
     {
-        if (heightMapPtr == null || width <= 0)
+        if (heightMap.Buffer == null || width <= 0)
         {
             return;
         }
 
-        int height = heightMapLength / width;
+        int height = heightMap.Length / width;
 
-        ThermalErosion erosion = new(heightMapPtr, _talusAngle)
+        ThermalErosion erosion = new(heightMap.Buffer, _talusAngle)
         {
             Width = width,
             Height = height,

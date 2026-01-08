@@ -1,9 +1,9 @@
 ﻿namespace ProceduralGraph.Terrain;
 
 /// <summary>
-/// IHeightmapPostProcessor interface.
+/// IHeightmapPostProcess interface.
 /// </summary>
 public interface ITopographyPostProcessor
 {
-    unsafe void Apply(FlaxEngine.Terrain terrain, float* heightMapPtr, int heightMapLength, int width);
+    void Apply(FlaxEngine.Terrain terrain, FatPointer<float> heightMap, int size);
 }
