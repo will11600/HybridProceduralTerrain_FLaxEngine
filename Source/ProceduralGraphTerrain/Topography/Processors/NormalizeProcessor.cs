@@ -2,10 +2,10 @@
 using System;
 using System.ComponentModel;
 
-namespace ProceduralGraph.Terrain.Topography;
+namespace ProceduralGraph.Terrain.Topography.Processors;
 
 [DisplayName("Normalize")]
-public sealed class Normalize : GraphComponent, ITopographyPostProcessor
+public sealed class NormalizeProcessor : GraphComponent, ITopographyPostProcessor
 {
     private float _min = -1.0f;
     public float Min
@@ -29,23 +29,21 @@ public sealed class Normalize : GraphComponent, ITopographyPostProcessor
         set => RaiseAndSetIfChanged(ref _exponent, in value);
     }
 
-    public void Apply(Memory<float> heightmap, int size)
+    public unsafe void Apply(FlaxEngine.Terrain terrain, float* heightMapPtr, int heightMapLength, int width)
     {
         float min = float.MaxValue;
         float max = float.MinValue;
 
-        Span<float> span = heightmap.Span;
-
-        for (int i = 0; i < heightmap.Length; i++)
+        for (int i = 0; i < heightMapLength; i++)
         {
-            ref readonly float height = ref span[i];
+            ref readonly float height = ref heightMapPtr[i];
             min = height < min ? height : min;
             max = height > max ? height : max;
         }
 
-        for (int i = 0; i < heightmap.Length; i++)
+        for (int i = 0; i < heightMapLength; i++)
         {
-            ref float height = ref span[i];
+            ref float height = ref heightMapPtr[i];
             float normalizedHeight = Mathf.InverseLerp(min, max, height);
             float heightPowN = Mathf.Pow(normalizedHeight, Exponent);
             height = Mathf.Lerp(Min, Max, heightPowN);

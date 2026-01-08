@@ -2,10 +2,10 @@
 using FlaxEngine.Utilities;
 using System.ComponentModel;
 
-namespace ProceduralGraph.Terrain.Topography;
+namespace ProceduralGraph.Terrain.Topography.Samplers;
 
 [DisplayName("Perlin Noise Layer")]
-public sealed class PerlinNoiseSampler : GraphComponent, ITopographyProvider
+public sealed class PerlinNoiseSampler : GraphComponent, ITopographySampler
 {
     private const float MaxOffset = 1_000.0f;
 
