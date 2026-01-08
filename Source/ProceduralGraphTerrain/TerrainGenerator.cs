@@ -3,6 +3,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -84,12 +85,12 @@ internal sealed class TerrainGenerator : IGenerator<TerrainGenerator>, IDisposab
 
         SplitPatch(offset, _heightMapPtr, patch.HeightMapPtr);
 
-        if (patch.SetupHeightmap(Target))
+        if (Target.SetupPatchHeightMap(ref patch.index, _heightMapLength, _heightMapPtr)) // Note: Inverted return value
         {
-            return SetupSlatMapsAsync(patch, offset, cancellationToken);
+            throw new InvalidOperationException($"Failed to setup patch heightmap ({patch.index})");
         }
 
-        throw new InvalidOperationException($"Failed to setup patch heightmap ({patch.index})");
+        return SetupSlatMapsAsync(patch, offset, cancellationToken);
     }
 
     private unsafe ValueTask SetupSlatMapsAsync(Patch patch, Int2 offset, CancellationToken cancellationToken)
@@ -101,42 +102,33 @@ internal sealed class TerrainGenerator : IGenerator<TerrainGenerator>, IDisposab
         }
 
         int resolution = Patches.Size * Patches.Size;
-        int maxLayerIndex = providers.Max(static p => p.LayerIndex);
-        int mapCount = (maxLayerIndex / 4) + 1;
-        Color32** splatMaps = (Color32**)NativeMemory.Alloc((nuint)mapCount * (nuint)sizeof(Color32*));
-
+        Span<IntPtr> splatMaps = stackalloc IntPtr[(providers.Max(static p => p.LayerIndex) / 4) + 1];
         try
         {
-            for (int i = 0; i < mapCount; i++)
+            FillJagged<Color32>(splatMaps, (nuint)resolution);
+
+            for (int z = 0; z < Patches.Size; z++)
             {
-                splatMaps[i] = (Color32*)NativeMemory.Alloc((nuint)(resolution * sizeof(Color32)));
-            }
-
-            for (int i = 0; i < resolution; i++)
-            {
-                int x = i % Patches.Size;
-                int z = i / Patches.Size;
-
-                if (x == 0)
+                cancellationToken.ThrowIfCancellationRequested();
+                int rowOffset = z * Patches.Size;
+                for (int x = 0; x < Patches.Size; x++)
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-                }
-
-                float inclination = CalculateInclination(_heightMapPtr, offset.X + x, offset.Y + z, Size);
-                ref float height = ref patch.HeightMapPtr[i];
-
-                foreach (ISplatMapLayerWeightSampler provider in providers)
-                {
-                    int channelIndex = provider.LayerIndex % 4;
-                    int mapIndex = provider.LayerIndex / 4;
-                    Color32* pixelPtr = splatMaps[mapIndex] + i;
-                    (*pixelPtr)[channelIndex] = provider.ComputeWeight(Target, in height, in inclination);
+                    float inclination = CalculateInclination(_heightMapPtr, offset.X + x, offset.Y + z, Size);
+                    int index = rowOffset + x;
+                    ref float height = ref patch.HeightMapPtr[index];
+                    foreach (ISplatMapLayerWeightSampler provider in providers)
+                    {
+                        int channelIndex = provider.LayerIndex % 4;
+                        int mapIndex = provider.LayerIndex / 4;
+                        Color32* pixelPtr = ((Color32*)splatMaps[mapIndex]) + index;
+                        (*pixelPtr)[channelIndex] = provider.ComputeWeight(Target, in height, in inclination);
+                    }
                 }
             }
 
-            for (int i = 0; i < mapCount; i++)
+            for (int i = 0; i < splatMaps.Length; i++)
             {
-                if (Target.SetupPatchSplatMap(ref patch.index, i, resolution, splatMaps[i])) // Note: Inverted return value
+                if (Target.SetupPatchSplatMap(ref patch.index, i, resolution, (Color32*)splatMaps[i])) // Note: Inverted return value
                 {
                     throw new InvalidOperationException($"Failed to setup patch splatmap ({patch.index})");
                 }
@@ -144,14 +136,10 @@ internal sealed class TerrainGenerator : IGenerator<TerrainGenerator>, IDisposab
         }
         finally
         {
-            for (int i = 0; i < mapCount; i++)
+            foreach (IntPtr ptr in splatMaps)
             {
-                if (splatMaps[i] != null)
-                {
-                    NativeMemory.Free(splatMaps[i]);
-                }
+                NativeMemory.Free((void*)ptr);
             }
-            NativeMemory.Free(splatMaps);
         }
 
         return ValueTask.CompletedTask;
@@ -282,6 +270,16 @@ internal sealed class TerrainGenerator : IGenerator<TerrainGenerator>, IDisposab
         max += Int2.One;
 
         return max - min;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static unsafe void FillJagged<T>(Span<IntPtr> items, nuint count) where T : unmanaged
+    {
+        nuint elementSize = (nuint)sizeof(T);
+        for (int i = 0; i < items.Length; i++)
+        {
+            items[i] = (IntPtr)NativeMemory.Alloc(count, elementSize);
+        }
     }
 
     private unsafe void Dispose(bool disposing)

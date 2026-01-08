@@ -5,8 +5,6 @@ using System.Runtime.InteropServices;
 
 namespace ProceduralGraph.Terrain;
 
-using TerrainActor = FlaxEngine.Terrain;
-
 internal sealed class Patch(Int2 index, int length) : IDisposable
 {
     private bool _disposed;
@@ -16,12 +14,6 @@ internal sealed class Patch(Int2 index, int length) : IDisposable
     public int HeightMapLength { get; } = length;
 
     public Int2 index = index;
-
-    public unsafe bool SetupHeightmap(TerrainActor terrain)
-    {
-        ArgumentNullException.ThrowIfNull(terrain, nameof(terrain));
-        return !terrain.SetupPatchHeightMap(ref index, HeightMapLength, HeightMapPtr);
-    }
 
     private unsafe void Dispose(bool disposing)
     {
