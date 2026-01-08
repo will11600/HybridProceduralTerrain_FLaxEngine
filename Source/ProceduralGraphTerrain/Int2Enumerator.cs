@@ -39,18 +39,18 @@ internal struct Int2Enumerator : IEnumerator<Int2>
  
     public bool MoveNext()
     {
-        if (++_x > End.X)
+        if (++_x >= End.X)
         {
             _x = Start.X;
             _y++;
         }
         
-        return _y <= End.Y;
+        return _y < End.Y && _x < End.X;
     }
 
     public void Reset()
     {
-        _x = Start.X;
+        _x = Start.X - 1;
         _y = Start.Y;
     }
 
