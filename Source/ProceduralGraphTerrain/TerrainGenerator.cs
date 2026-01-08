@@ -49,7 +49,7 @@ internal readonly struct TerrainGenerator : IGenerator<TerrainGenerator>, IDispo
 
     public async Task BuildAsync(CancellationToken cancellationToken)
     {
-        Int2Enumerable coordEnumerator = new(Patches.Count - Int2.One);
+        Int2Enumerable coordEnumerator = new(Patches.Count);
         try
         {
             await Parallel.ForEachAsync(coordEnumerator, cancellationToken, GeneratePatchAsync);
