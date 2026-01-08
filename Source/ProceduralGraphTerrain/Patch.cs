@@ -1,40 +1,53 @@
 ﻿#nullable enable
 using FlaxEngine;
 using System;
-using System.Buffers;
+using System.Runtime.InteropServices;
 
 namespace ProceduralGraph.Terrain;
 
 using TerrainActor = FlaxEngine.Terrain;
 
-internal readonly struct Patch : IDisposable
+internal sealed class Patch(Int2 index, int length) : IDisposable
 {
-    private static ArrayPool<float> SharedPool { get; } = ArrayPool<float>.Shared;
+    private bool _disposed;
 
-    public Int2 Index { get; }
+    public unsafe float* HeightMapPtr { get; } = (float*)NativeMemory.Alloc((nuint)(length * sizeof(float)));
 
-    private readonly float[] _heightmap;
-    public Memory<float> Heightmap { get; }
+    public int HeightMapLength { get; } = length;
 
-    public Patch(Int2 index, int size)
-    {
-        Index = index;
-        int resolution = size * size;
-        Heightmap = ArrayUtils.Rent(SharedPool, resolution, out _heightmap);
-    }
+    public Int2 index = index;
 
-    public readonly unsafe bool SetupHeightmap(TerrainActor terrain)
+    public unsafe bool SetupHeightmap(TerrainActor terrain)
     {
         ArgumentNullException.ThrowIfNull(terrain, nameof(terrain));
-        Int2 coordinate = Index;
-        fixed (float* ptr = &_heightmap[0])
+        return !terrain.SetupPatchHeightMap(ref index, HeightMapLength, HeightMapPtr);
+    }
+
+    private unsafe void Dispose(bool disposing)
+    {
+        if (_disposed)
         {
-            return !terrain.SetupPatchHeightMap(ref coordinate, Heightmap.Length, ptr);
+            return;
         }
+
+        if (disposing)
+        {
+            // Dispose of managed resources if any.
+        }
+
+        NativeMemory.Free(HeightMapPtr);
+
+        _disposed = true;
+    }
+
+    ~Patch()
+    {
+        Dispose(disposing: false);
     }
 
     public void Dispose()
     {
-        SharedPool.Return(_heightmap);
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
     }
 }
