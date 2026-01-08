@@ -50,10 +50,8 @@ public sealed class HydraulicErosion : GraphComponent, ITopographyPostProcessor
         set => RaiseAndSetIfChanged(ref _gravity, in value);
     }
 
-    public void Apply(Memory<float> heightmap, int width)
+    public void Apply(Span<float> heightmap, int width)
     {
-        Span<float> map = heightmap.Span;
-
         for (int i = 0; i < _droplets; i++)
         {
             float px = RandomUtil.Rand() * (width - 1.1f);
@@ -70,8 +68,8 @@ public sealed class HydraulicErosion : GraphComponent, ITopographyPostProcessor
                 int iy = (int)py;
                 int idx = iy * width + ix;
 
-                float gx = map[idx + 1] - map[idx];
-                float gy = map[idx + width] - map[idx];
+                float gx = heightmap[idx + 1] - heightmap[idx];
+                float gy = heightmap[idx + width] - heightmap[idx];
 
                 dirX = dirX * 0.1f - gx;
                 dirY = dirY * 0.1f - gy;
@@ -89,8 +87,8 @@ public sealed class HydraulicErosion : GraphComponent, ITopographyPostProcessor
                 if (px < 0 || px >= width - 1 || py < 0 || py >= width - 1)
                     break;
 
-                float newHeight = map[(int)py * width + (int)px];
-                float delta = map[idx] - newHeight;
+                float newHeight = heightmap[(int)py * width + (int)px];
+                float delta = heightmap[idx] - newHeight;
 
                 float capacity = Mathf.Max(delta, 0.01f) * velocity * water * 5f;
 
@@ -98,13 +96,13 @@ public sealed class HydraulicErosion : GraphComponent, ITopographyPostProcessor
                 {
                     float deposit = (sediment - capacity) * _depositionRate;
                     sediment -= deposit;
-                    map[idx] += deposit;
+                    heightmap[idx] += deposit;
                 }
                 else
                 {
                     float erode = Mathf.Min((capacity - sediment) * _erosionRate, delta);
                     sediment += erode;
-                    map[idx] -= erode;
+                    heightmap[idx] -= erode;
                 }
 
                 velocity = Mathf.Sqrt(Mathf.Max(0, velocity * velocity + delta * _gravity));

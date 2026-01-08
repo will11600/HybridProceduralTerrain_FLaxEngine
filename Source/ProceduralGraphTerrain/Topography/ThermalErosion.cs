@@ -29,7 +29,7 @@ public sealed class ThermalErosion : GraphComponent, ITopographyPostProcessor
         set => RaiseAndSetIfChanged(ref _angleThreshold, in value);
     }
 
-    public void Apply(Memory<float> heightmap, int size)
+    public void Apply(Span<float> heightmap, int size)
     {
         for (int iter = 0; iter < 2; iter++)
         {
@@ -48,12 +48,12 @@ public sealed class ThermalErosion : GraphComponent, ITopographyPostProcessor
 
                     foreach (int n in neighbors)
                     {
-                        float diff = heightmap.Span[idx] - heightmap.Span[n];
+                        float diff = heightmap[idx] - heightmap[n];
                         if (diff > AngleThreshold / 1000f)
                         {
                             float move = (diff - AngleThreshold / 1000f) * Strength;
-                            heightmap.Span[idx] -= move;
-                            heightmap.Span[n] += move;
+                            heightmap[idx] -= move;
+                            heightmap[n] += move;
                         }
                     }
                 }

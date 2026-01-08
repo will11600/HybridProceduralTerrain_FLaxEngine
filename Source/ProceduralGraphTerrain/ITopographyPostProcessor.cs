@@ -7,5 +7,5 @@ namespace ProceduralGraph.Terrain;
 /// </summary>
 public interface ITopographyPostProcessor
 {
-    void Apply(Memory<float> heightmap, int size);
+    void Apply(Span<float> heightmap, int size);
 }

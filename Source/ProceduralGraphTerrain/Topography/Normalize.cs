@@ -29,23 +29,21 @@ public sealed class Normalize : GraphComponent, ITopographyPostProcessor
         set => RaiseAndSetIfChanged(ref _exponent, in value);
     }
 
-    public void Apply(Memory<float> heightmap, int size)
+    public void Apply(Span<float> heightmap, int size)
     {
         float min = float.MaxValue;
         float max = float.MinValue;
 
-        Span<float> span = heightmap.Span;
-
         for (int i = 0; i < heightmap.Length; i++)
         {
-            ref readonly float height = ref span[i];
+            ref readonly float height = ref heightmap[i];
             min = height < min ? height : min;
             max = height > max ? height : max;
         }
 
         for (int i = 0; i < heightmap.Length; i++)
         {
-            ref float height = ref span[i];
+            ref float height = ref heightmap[i];
             float normalizedHeight = Mathf.InverseLerp(min, max, height);
             float heightPowN = Mathf.Pow(normalizedHeight, Exponent);
             height = Mathf.Lerp(Min, Max, heightPowN);

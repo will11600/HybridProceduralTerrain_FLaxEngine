@@ -44,7 +44,7 @@ public sealed class TerrainCurvature : GraphComponent, ITopographyPostProcessor
         set => RaiseAndSetIfChanged(ref _iterations, in value);
     }
 
-    public void Apply(Memory<float> heightmap, int size)
+    public void Apply(Span<float> heightmap, int size)
     {
         if (heightmap.Length != size * size || Iterations <= 0)
             return;
@@ -57,7 +57,7 @@ public sealed class TerrainCurvature : GraphComponent, ITopographyPostProcessor
 
         try
         {
-            Span<float> src = heightmap.Span;
+            Span<float> src = heightmap;
             Span<float> dst = buffer.Span;
 
             for (int iter = 0; iter < Iterations; iter++)
@@ -90,7 +90,7 @@ public sealed class TerrainCurvature : GraphComponent, ITopographyPostProcessor
                 Swap(ref src, ref dst);
             }
 
-            src.CopyTo(heightmap.Span);
+            src.CopyTo(heightmap);
         }
         finally
         {
