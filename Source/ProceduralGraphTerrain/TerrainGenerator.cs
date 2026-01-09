@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Channels;
@@ -27,6 +28,8 @@ internal sealed class TerrainGenerator : IGenerator<TerrainGenerator>, IDisposab
 
     private readonly ImmutableArray<ITopographySampler> _topographySamplers;
     private readonly ImmutableArray<ITopographyPostProcessor> _topographyPostProcessors;
+    // [New] Store splat samplers to texture the terrain
+    private readonly ImmutableArray<ISplatMapLayerWeightSampler> _splatSamplers;
 
     public FlaxEngine.Terrain Target { get; }
     public Int2 Size { get; }
@@ -37,8 +40,11 @@ internal sealed class TerrainGenerator : IGenerator<TerrainGenerator>, IDisposab
         Target = terrain ?? throw new ArgumentNullException(nameof(terrain));
 
         ArgumentNullException.ThrowIfNull(models, nameof(models));
+
+        // Categorize components
         _topographySamplers = [.. models.OfType<ITopographySampler>()];
         _topographyPostProcessors = [.. models.OfType<ITopographyPostProcessor>()];
+        _splatSamplers = [.. models.OfType<ISplatMapLayerWeightSampler>()];
 
         _patchMaps = Channel.CreateBounded<IPatchMap>(_boundedChannelOptions);
 
@@ -77,12 +83,16 @@ internal sealed class TerrainGenerator : IGenerator<TerrainGenerator>, IDisposab
     public async Task BuildAsync(CancellationToken cancellationToken)
     {
         Int2Enumerable coordEnumerator = new(Patches.Count);
+
         await Parallel.ForEachAsync(coordEnumerator, cancellationToken, BuildPatchAsync);
+
         foreach (ITopographyPostProcessor postProcessor in _topographyPostProcessors)
         {
             postProcessor.Apply(Target, _heightMap, Size.X);
         }
+
         await Parallel.ForEachAsync(coordEnumerator, cancellationToken, SetupPatchMapsAsync);
+
         _patchMaps.Writer.Complete();
         await _patchMaps.Reader.Completion;
     }
@@ -122,19 +132,122 @@ internal sealed class TerrainGenerator : IGenerator<TerrainGenerator>, IDisposab
         return ValueTask.CompletedTask;
     }
 
-    private unsafe ValueTask SetupPatchMapsAsync(Int2 patchCoord, CancellationToken cancellationToken)
+    private async ValueTask SetupPatchMapsAsync(Int2 patchCoord, CancellationToken cancellationToken)
+    {
+        await SetupPatchHeightMapAsync(patchCoord, cancellationToken);
+
+        if (_splatSamplers.IsEmpty)
+        {
+            return;
+        }
+
+        foreach (var group in _splatSamplers.GroupBy(SplatMapIndexOf))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            int mapIndex = group.Key;
+            PatchSplatMap splatMap = new(patchCoord, mapIndex, Patches.Size);
+
+            try
+            {
+                unsafe { GenerateSplatMapForPatch(splatMap.SplatMap, Patches.Size, patchCoord * Patches.Stride, group); }
+            }
+            catch
+            {
+                splatMap.Dispose();
+                throw;
+            }
+
+            await _patchMaps.Writer.WriteAsync(splatMap, cancellationToken);
+        }
+    }
+
+    private async ValueTask SetupPatchHeightMapAsync(Int2 patchCoord, CancellationToken cancellationToken)
     {
         PatchHeightMap patchHeightMap = new(patchCoord, Patches.Size);
         try
         {
-            SplitPatch(_heightMap.Buffer, Size.X, patchHeightMap.HeightMap, Patches.Size, patchCoord * Patches.Stride);
-            return _patchMaps.Writer.WriteAsync(patchHeightMap, cancellationToken);
+            unsafe
+            {
+                SplitPatch(_heightMap.Buffer, Size.X, patchHeightMap.HeightMap, Patches.Size, patchCoord * Patches.Stride);
+            }
+            
+            await _patchMaps.Writer.WriteAsync(patchHeightMap, cancellationToken);
         }
-        catch
+        catch 
         {
             patchHeightMap.Dispose();
             throw;
         }
+    }
+
+    private unsafe void GenerateSplatMapForPatch(Color32* destBuffer, int patchSize, Int2 offset, IEnumerable<ISplatMapLayerWeightSampler> samplers)
+    {
+        float* heightMapBuffer = _heightMap.Buffer;
+
+        int globalWidth = Size.X;
+        int globalHeight = Size.Y;
+
+        for (int y = 0; y < patchSize; y++)
+        {
+            int globalY = offset.Y + y;
+            int rowOffset = globalY * globalWidth;
+
+            for (int x = 0; x < patchSize; x++)
+            {
+                int globalX = offset.X + x;
+                int globalIndex = rowOffset + globalX;
+
+                ref float height = ref heightMapBuffer[globalIndex];
+
+                float inclination = CalculateInclination(heightMapBuffer, globalX, globalY, globalWidth, globalHeight, Target.Scale * FlaxEngine.Terrain.UnitsPerVertex);
+
+                ref Color32 color = ref destBuffer[(y * patchSize) + x];
+                fixed (Color32* colorPtr = &color)
+                {
+                    Span<byte> channels = new(colorPtr, sizeof(Color32));
+                    foreach (var sampler in samplers)
+                    {
+                        channels[sampler.LayerIndex % channels.Length] = sampler.ComputeWeight(Target, in height, in inclination);
+                    }
+                }
+            }
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private unsafe float CalculateInclination(float* buffer, int x, int y, int width, int height, Float3 scale)
+    {
+        int xL = x > 0 ? x - 1 : x;
+        int xR = x < width - 1 ? x + 1 : x;
+        int yD = y > 0 ? y - 1 : y;
+        int yU = y < height - 1 ? y + 1 : y;
+
+        float hL = buffer[y * width + xL];
+        float hR = buffer[y * width + xR];
+        float hD = buffer[yD * width + x];
+        float hU = buffer[yU * width + x];
+
+        float runX = (xR - xL) * scale.X;
+        float runZ = (yU - yD) * scale.Z;
+
+        if (runX <= float.Epsilon) runX = 1.0f;
+        if (runZ <= float.Epsilon) runZ = 1.0f;
+
+        float riseX = (hR - hL) * scale.Y;
+        float riseZ = (hU - hD) * scale.Y;
+
+        float slopeX = riseX / runX;
+        float slopeZ = riseZ / runZ;
+
+        float slope = Mathf.Sqrt(slopeX * slopeX + slopeZ * slopeZ);
+
+        return Mathf.Atan(slope) * Mathf.RadiansToDegrees;
+    }
+
+    private static unsafe int SplatMapIndexOf(ISplatMapLayerWeightSampler sampler)
+    {
+        return sampler.LayerIndex / sizeof(Color32);
     }
 
     private static Int2 CountPatches(FlaxEngine.Terrain terrain)
