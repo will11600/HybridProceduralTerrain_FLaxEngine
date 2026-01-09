@@ -41,7 +41,7 @@ public sealed class SteepnessLayerWeightSampler : GraphComponent, ISplatMapLayer
 
     public byte ComputeWeight(FlaxEngine.Terrain terrain, ref readonly float height, ref readonly float inclination)
     {
-        float slopeFactor = Mathf.SmoothStep(_minSlopeAngle, _maxSlopeAngle, inclination);
+        float slopeFactor = (inclination - MinSlopeAngle) / (MaxSlopeAngle - MinSlopeAngle);
         return (byte)(byte.MaxValue * slopeFactor);
     }
 }
