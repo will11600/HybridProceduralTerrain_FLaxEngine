@@ -1,32 +1,30 @@
 ﻿using FlaxEngine;
-using System;
 using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
-namespace ProceduralGraph.Terrain.Topography.Processors;
+namespace ProceduralGraph.Terrain.Topography.Normalization;
 
-[DisplayName("Normalize")]
-public sealed class NormalizeProcessor : GraphComponent, ITopographyPostProcessor
+[DisplayName("Linear Normalizer")]
+public class LinearNormalizer : GraphComponent, ITopographyPostProcessor
 {
-    private float _min = -1.0f;
+    private float _min = -1000.0f;
+    /// <summary>
+    /// Gets or sets the minimum height value after normalization.
+    /// </summary>
     public float Min
     {
         get => _min;
         set => RaiseAndSetIfChanged(ref _min, in value);
     }
 
-    private float _max = 1.0f;
+    private float _max = 1000.0f;
+    /// <summary>
+    /// Gets or sets the maximum height value after normalization.
+    /// </summary>
     public float Max
     {
         get => _max;
         set => RaiseAndSetIfChanged(ref _max, in value);
-    }
-
-    private float _exponent = 1.0f;
-    [Limit(1.0f)]
-    public float Exponent
-    {
-        get => _exponent;
-        set => RaiseAndSetIfChanged(ref _exponent, in value);
     }
 
     public unsafe void Apply(FlaxEngine.Terrain terrain, FatPointer<float> heightMap, int width)
@@ -44,10 +42,14 @@ public sealed class NormalizeProcessor : GraphComponent, ITopographyPostProcesso
         for (int i = 0; i < heightMap.Length; i++)
         {
             ref float height = ref heightMap.Buffer[i];
-            float normalizedHeight = Mathf.InverseLerp(min, max, height);
-            float heightPowN = Mathf.Pow(normalizedHeight, Exponent);
-            height = Mathf.Lerp(Min, Max, heightPowN);
+            height = Mathf.InverseLerp(min, max, height);
+            Evaluate(i, width, ref height);
         }
     }
-}
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected virtual void Evaluate(int index, int width, ref float height)
+    {
+        height = Mathf.Lerp(Min, Max, height);
+    }
+}
