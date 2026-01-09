@@ -54,7 +54,7 @@ public sealed class PerlinNoiseSampler : GraphComponent, ITopographySampler
         _frequency = 100.0f;
     }
 
-    public void GetHeight(float u, float v, ref float height)
+    public void GetHeight(FlaxEngine.Terrain terrain, float u, float v, ref float height)
     {
         Float2 coord = default;
         coord.X = (u * _frequency) + _offset.X;

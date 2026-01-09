@@ -5,5 +5,5 @@
 /// </summary>
 public interface ITopographySampler
 {
-    void GetHeight(float u, float v, ref float height);
+    void GetHeight(FlaxEngine.Terrain terrain, float u, float v, ref float height);
 }

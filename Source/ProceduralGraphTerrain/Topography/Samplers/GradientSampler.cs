@@ -7,7 +7,7 @@ namespace ProceduralGraph.Terrain.Topography.Samplers;
 /// <summary>
 /// GradientSampler class.
 /// </summary>
-[DisplayName("Gradient")]
+[DisplayName("Gradient Layer")]
 public sealed class GradientSampler : GraphComponent, ITopographySampler
 {
     private Float2 _origin = new(0.5f, 0.5f);
@@ -56,7 +56,7 @@ public sealed class GradientSampler : GraphComponent, ITopographySampler
         set => RaiseAndSetIfChanged(ref _mode, in value);
     }
 
-    public void GetHeight(float u, float v, ref float height)
+    public void GetHeight(FlaxEngine.Terrain terrain, float u, float v, ref float height)
     {
         u = Mathf.Abs(_origin.X - u);
         v = Mathf.Abs(_origin.Y - v);

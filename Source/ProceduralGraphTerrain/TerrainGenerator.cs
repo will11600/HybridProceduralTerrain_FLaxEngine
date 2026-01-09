@@ -124,7 +124,7 @@ internal sealed class TerrainGenerator : IGenerator<TerrainGenerator>, IDisposab
                 ref float height = ref rawBuffer[rowOffset + x];
                 foreach (ITopographySampler layer in _topographySamplers)
                 {
-                    layer.GetHeight(u, v, ref height);
+                    layer.GetHeight(Target, u, v, ref height);
                 }
             }
         }
