@@ -1,0 +1,75 @@
+﻿using FlaxEngine;
+using FlaxEngine.Utilities;
+using System.ComponentModel;
+
+namespace ProceduralGraph.Terrain.Topography.Samplers;
+
+[DisplayName("Voronoi Noise Layer")]
+public sealed class VoronoiNoiseSampler : GraphComponent, ITopographySampler
+{
+    private const float MaxOffset = 1_000.0f;
+
+    private float _frequency;
+    /// <summary>
+    /// The frequency of the noise. Higher values create smaller details.
+    /// </summary>
+    public float Frequency
+    {
+        get => _frequency;
+        set => RaiseAndSetIfChanged(ref _frequency, in value);
+    }
+
+    private float _amplitude;
+    /// <summary>
+    /// The vertical strength of this noise layer. Typically decreases as Frequency increases.
+    /// </summary>
+    public float Amplitude
+    {
+        get => _amplitude;
+        set => RaiseAndSetIfChanged(ref _amplitude, in value);
+    }
+
+    private Float2 _offset;
+    /// <summary>
+    /// Offsets the noise sampling.
+    /// </summary>
+    public Float2 Offset
+    {
+        get => _offset;
+        set => RaiseAndSetIfChanged(ref _offset, in value);
+    }
+
+    private BlendMode _mode = BlendMode.Add;
+    public BlendMode Mode
+    {
+        get => _mode;
+        set => RaiseAndSetIfChanged(ref _mode, in value);
+    }
+
+    public VoronoiNoiseSampler()
+    {
+        _offset.X = MaxOffset * RandomUtil.Rand();
+        _offset.Y = MaxOffset * RandomUtil.Rand();
+        _amplitude = 100.0f;
+        _frequency = 100.0f;
+    }
+
+    public void GetHeight(FlaxEngine.Terrain terrain, float u, float v, ref float height)
+    {
+        Float2 coord = default;
+        coord.X = (u * _frequency) + _offset.X;
+        coord.Y = (v * _frequency) + _offset.Y;
+
+        Float3 voronoi = Noise.VoronoiNoise(coord);
+        float noiseValue = Mathf.Max(0.0f, 1.0f - voronoi.X);
+        float signal = noiseValue * _amplitude;
+
+        switch (_mode)
+        {
+            case BlendMode.Add: height += signal; break;
+            case BlendMode.Subtract: height -= signal; break;
+            case BlendMode.Multiply: height *= signal; break;
+            default: goto case BlendMode.Add;
+        }
+    }
+}
