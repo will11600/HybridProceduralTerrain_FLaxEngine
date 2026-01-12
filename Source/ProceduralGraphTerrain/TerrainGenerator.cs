@@ -3,6 +3,7 @@ using FlaxEngine;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -24,27 +25,22 @@ internal sealed class TerrainGenerator : IGenerator<TerrainGenerator>, IDisposab
 
     private readonly Channel<IPatchMap> _patchMaps;
     private readonly FatPointer<float> _heightMap;
+    private readonly IEnumerable<GraphComponent> _components;
     private bool _disposed;
 
-    private readonly ImmutableArray<ITopographySampler> _topographySamplers;
-    private readonly ImmutableArray<ITopographyPostProcessor> _topographyPostProcessors;
-    // [New] Store splat samplers to texture the terrain
-    private readonly ImmutableArray<ISplatMapLayerWeightSampler> _splatSamplers;
+    private readonly List<ITopographySampler> _topographySamplers = [];
+    private readonly List<ITopographyPostProcessor> _topographyPostProcessors = [];
+    private readonly List<ISplatMapLayerWeightSampler> _splatSamplers = [];
 
     public FlaxEngine.Terrain Target { get; }
     public Int2 Size { get; }
     public TerrainPatches Patches { get; }
 
-    public TerrainGenerator(FlaxEngine.Terrain terrain, IEnumerable<GraphComponent> models)
+    public TerrainGenerator(FlaxEngine.Terrain terrain, IEnumerable<GraphComponent> components)
     {
         Target = terrain ?? throw new ArgumentNullException(nameof(terrain));
 
-        ArgumentNullException.ThrowIfNull(models, nameof(models));
-
-        // Categorize components
-        _topographySamplers = [.. models.OfType<ITopographySampler>()];
-        _topographyPostProcessors = [.. models.OfType<ITopographyPostProcessor>()];
-        _splatSamplers = [.. models.OfType<ISplatMapLayerWeightSampler>()];
+        _components = components ?? throw new ArgumentNullException(nameof(components));
 
         _patchMaps = Channel.CreateBounded<IPatchMap>(_boundedChannelOptions);
 
@@ -82,19 +78,59 @@ internal sealed class TerrainGenerator : IGenerator<TerrainGenerator>, IDisposab
 
     public async Task BuildAsync(CancellationToken cancellationToken)
     {
-        Int2Enumerable coordEnumerator = new(Patches.Count);
-
-        await Parallel.ForEachAsync(coordEnumerator, cancellationToken, BuildPatchAsync);
-
-        foreach (ITopographyPostProcessor postProcessor in _topographyPostProcessors)
+        int stage = 0;
+        foreach (GraphComponent component in _components)
         {
-            postProcessor.Apply(Target, _heightMap, Size.X);
+            switch (component)
+            {
+                case ITopographySampler sampler:
+                    stage = await AdvanceStageAsync(0, sampler, _topographySamplers, stage, cancellationToken);
+                    break;
+                case ITopographyPostProcessor postProcessor:
+                    stage = await AdvanceStageAsync(1, postProcessor, _topographyPostProcessors, stage, cancellationToken);
+                    break;
+                case ISplatMapLayerWeightSampler splatSampler:
+                    _splatSamplers.Add(splatSampler);
+                    break;
+            }
         }
 
+        Int2Enumerable coordEnumerator = await ExecutePass(cancellationToken);
         await Parallel.ForEachAsync(coordEnumerator, cancellationToken, SetupPatchMapsAsync);
 
         _patchMaps.Writer.Complete();
         await _patchMaps.Reader.Completion;
+    }
+
+    private async ValueTask<int> AdvanceStageAsync<T>(int processStage, T processor, List<T> processors, int currentStage, CancellationToken cancellationToken)
+    {
+        if (processStage < currentStage)
+        {
+            await ExecutePass(cancellationToken);
+
+            _topographySamplers.Clear();
+            _topographyPostProcessors.Clear();
+            _splatSamplers.Clear();
+
+            processors.Add(processor);
+
+            return 0;
+        }
+
+        processors.Add(processor);
+
+        return processStage;
+    }
+
+    private async Task<Int2Enumerable> ExecutePass(CancellationToken cancellationToken)
+    {
+        Int2Enumerable coordEnumerator = new(Patches.Count);
+        await Parallel.ForEachAsync(coordEnumerator, cancellationToken, BuildPatchAsync);
+        foreach (ITopographyPostProcessor postProcessor in _topographyPostProcessors)
+        {
+            postProcessor.Apply(Target, _heightMap, Size.X);
+        }
+        return coordEnumerator;
     }
 
     private unsafe ValueTask BuildPatchAsync(Int2 patchCoord, CancellationToken cancellationToken)
@@ -111,6 +147,9 @@ internal sealed class TerrainGenerator : IGenerator<TerrainGenerator>, IDisposab
         float* rawBuffer = _heightMap.Buffer;
         int totalWidth = Size.X;
 
+        float min = float.MaxValue;
+        float max = float.MinValue;
+
         for (int y = start.Y; y < end.Y; y++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -126,6 +165,9 @@ internal sealed class TerrainGenerator : IGenerator<TerrainGenerator>, IDisposab
                 {
                     layer.GetHeight(Target, u, v, ref height);
                 }
+
+                min = height < min ? height : min;
+                max = height > max ? height : max;
             }
         }
 
@@ -136,7 +178,7 @@ internal sealed class TerrainGenerator : IGenerator<TerrainGenerator>, IDisposab
     {
         await SetupPatchHeightMapAsync(patchCoord, cancellationToken);
 
-        if (_splatSamplers.IsEmpty)
+        if (_splatSamplers.Count == 0)
         {
             return;
         }
