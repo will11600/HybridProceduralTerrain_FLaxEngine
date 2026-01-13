@@ -30,7 +30,16 @@ public sealed class AltitudeLayerWeightSampler : GraphComponent, ISplatMapLayerW
 
     public byte ComputeWeight(FlaxEngine.Terrain terrain, ref readonly float height, ref readonly float normal)
     {
-        float altitudeFactor = Mathf.SmoothStep(_minAltitude, _maxAltitude, height);
+        if (height < _minAltitude)
+        {
+            return byte.MinValue;
+        }
+        else if (height > _maxAltitude)
+        {
+            return byte.MaxValue;
+        }
+
+        float altitudeFactor = (height - _minAltitude) / (_maxAltitude - _minAltitude);
         return (byte)(byte.MaxValue * altitudeFactor);
     }
 }
