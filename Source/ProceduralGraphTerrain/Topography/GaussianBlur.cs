@@ -4,15 +4,11 @@ using System.Runtime.InteropServices;
 
 namespace ProceduralGraph.Terrain.Topography;
 
-internal unsafe sealed class GaussianBlur(FatPointer<float> heightMap, int radius, float sigma) : IDisposable
+internal unsafe sealed class GaussianBlur(FatPointer2D<float> heightMap, int radius, float sigma) : IDisposable
 {
-    public float* SourcePtr { get; } = heightMap.Buffer;
+    public readonly FatPointer2D<float> heightMap = heightMap ?? throw new ArgumentNullException(nameof(heightMap));
 
-    public required int Width { get; init; }
-
-    public required int Height { get; init; }
-
-    public int Radius { get; } = radius;
+    public readonly int radius = radius;
 
     private readonly float* _tempPtr = (float*)NativeMemory.Alloc((nuint)(heightMap.Length * sizeof(float)));
 
@@ -25,21 +21,24 @@ internal unsafe sealed class GaussianBlur(FatPointer<float> heightMap, int radiu
         Dispose(disposing: false);
     }
 
-    public void ProcessRow(int y)
+    public unsafe void ProcessRow(int y)
     {
-        int rowOffset = y * Width;
+        int width = heightMap.Width;
+        float* buffer = heightMap.Buffer;
 
-        for (int x = 0; x < Width; x++)
+        int rowOffset = y * width;
+
+        for (int x = 0; x < width; x++)
         {
             float sum = 0f;
             float weightSum = 0f;
 
-            for (int k = -Radius; k <= Radius; k++)
+            for (int k = -radius; k <= radius; k++)
             {
-                int sampleX = Math.Clamp(x + k, 0, Width - 1);
+                int sampleX = Math.Clamp(x + k, 0, width - 1);
 
-                float sample = SourcePtr[rowOffset + sampleX];
-                float weight = _kernelPtr[k + Radius];
+                float sample = buffer[rowOffset + sampleX];
+                float weight = _kernelPtr[k + radius];
 
                 sum += sample * weight;
                 weightSum += weight;
@@ -49,27 +48,31 @@ internal unsafe sealed class GaussianBlur(FatPointer<float> heightMap, int radiu
         }
     }
 
-    public void ProcessColumn(int x)
+    public unsafe void ProcessColumn(int x)
     {
-        for (int y = 0; y < Height; y++)
+        int width = heightMap.Width;
+        int height = heightMap.Height;
+        float* buffer = heightMap.Buffer;
+
+        for (int y = 0; y < width; y++)
         {
             float sum = 0f;
             float weightSum = 0f;
 
-            for (int k = -Radius; k <= Radius; k++)
+            for (int k = -radius; k <= radius; k++)
             {
-                int sampleY = Math.Clamp(y + k, 0, Height - 1);
+                int sampleY = Math.Clamp(y + k, 0, height - 1);
 
-                int sampleIndex = (sampleY * Width) + x;
+                int sampleIndex = (sampleY * width) + x;
 
                 float sample = _tempPtr[sampleIndex];
-                float weight = _kernelPtr[k + Radius];
+                float weight = _kernelPtr[k + radius];
 
                 sum += sample * weight;
                 weightSum += weight;
             }
 
-            SourcePtr[(y * Width) + x] = sum / weightSum;
+            buffer[(y * width) + x] = sum / weightSum;
         }
     }
 

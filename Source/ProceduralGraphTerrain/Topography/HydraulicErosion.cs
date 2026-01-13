@@ -4,12 +4,8 @@ using System.Runtime.CompilerServices;
 
 namespace ProceduralGraph.Terrain.Topography;
 
-internal unsafe sealed class HydraulicErosion(float* mapPtr)
+internal unsafe sealed class HydraulicErosion(FatPointer2D<float> mapPtr)
 {
-    public required int Width { get; init; }
-
-    public required int Height { get; init; }
-
     public required int Seed { get; init; }
 
     public required float Inertia { get; init; }
@@ -30,7 +26,7 @@ internal unsafe sealed class HydraulicErosion(float* mapPtr)
 
     public required float InitialWater { get; init; }
 
-    private readonly float* _mapPtr = mapPtr;
+    private readonly FatPointer2D<float> _mapPtr = mapPtr;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void ProcessDroplet(int i)
@@ -38,8 +34,8 @@ internal unsafe sealed class HydraulicErosion(float* mapPtr)
         var rng = new XorShiftRandom((uint)(Seed + i * 599));
 
         // Start at random position
-        float posX = rng.NextFloat() * (Width - 1);
-        float posY = rng.NextFloat() * (Height - 1);
+        float posX = rng.NextFloat() * (_mapPtr.Width - 1);
+        float posY = rng.NextFloat() * (_mapPtr.Height - 1);
 
         float dirX = 0;
         float dirY = 0;
@@ -75,7 +71,7 @@ internal unsafe sealed class HydraulicErosion(float* mapPtr)
             posY += dirY;
 
             // Stop if out of bounds
-            if (posX < 0 || posX >= Width - 1 || posY < 0 || posY >= Height - 1)
+            if (posX < 0 || posX >= _mapPtr.Width - 1 || posY < 0 || posY >= _mapPtr.Height - 1)
                 break;
 
             // Calculate new height difference
@@ -121,13 +117,13 @@ internal unsafe sealed class HydraulicErosion(float* mapPtr)
         float u = x - x0;
         float v = y - y0;
 
-        int idx = y0 * Width + x0;
+        int idx = y0 * _mapPtr.Width + x0;
 
         // Fetch heights of 4 neighbors
-        float h00 = _mapPtr[idx];
-        float h10 = _mapPtr[idx + 1];
-        float h01 = _mapPtr[idx + Width];
-        float h11 = _mapPtr[idx + Width + 1];
+        float h00 = _mapPtr.Buffer[idx];
+        float h10 = _mapPtr.Buffer[idx + 1];
+        float h01 = _mapPtr.Buffer[idx + _mapPtr.Width];
+        float h11 = _mapPtr.Buffer[idx + _mapPtr.Width + 1];
 
         // Bilinear interpolation for height
         h = (h00 * (1 - u) + h10 * u) * (1 - v) + (h01 * (1 - u) + h11 * u) * v;
@@ -140,20 +136,20 @@ internal unsafe sealed class HydraulicErosion(float* mapPtr)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void Deposit(int x, int y, float u, float v, float amount)
     {
-        int idx = y * Width + x;
-        FloatUtils.AtomicAdd(ref _mapPtr[idx], amount * (1 - u) * (1 - v));
-        FloatUtils.AtomicAdd(ref _mapPtr[idx + 1], amount * u * (1 - v));
-        FloatUtils.AtomicAdd(ref _mapPtr[idx + Width], amount * (1 - u) * v);
-        FloatUtils.AtomicAdd(ref _mapPtr[idx + Width + 1], amount * u * v);
+        int idx = y * _mapPtr.Width + x;
+        FloatUtils.AtomicAdd(ref _mapPtr.Buffer[idx], amount * (1 - u) * (1 - v));
+        FloatUtils.AtomicAdd(ref _mapPtr.Buffer[idx + 1], amount * u * (1 - v));
+        FloatUtils.AtomicAdd(ref _mapPtr.Buffer[idx + _mapPtr.Width], amount * (1 - u) * v);
+        FloatUtils.AtomicAdd(ref _mapPtr.Buffer[idx + _mapPtr.Width + 1], amount * u * v);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void Erode(int x, int y, float u, float v, float amount)
     {
-        int idx = y * Width + x;
-        FloatUtils.AtomicAdd(ref _mapPtr[idx], -amount * (1 - u) * (1 - v));
-        FloatUtils.AtomicAdd(ref _mapPtr[idx + 1], -amount * u * (1 - v));
-        FloatUtils.AtomicAdd(ref _mapPtr[idx + Width], -amount * (1 - u) * v);
-        FloatUtils.AtomicAdd(ref _mapPtr[idx + Width + 1], -amount * u * v);
+        int idx = y * _mapPtr.Width + x;
+        FloatUtils.AtomicAdd(ref _mapPtr.Buffer[idx], -amount * (1 - u) * (1 - v));
+        FloatUtils.AtomicAdd(ref _mapPtr.Buffer[idx + 1], -amount * u * (1 - v));
+        FloatUtils.AtomicAdd(ref _mapPtr.Buffer[idx + _mapPtr.Width], -amount * (1 - u) * v);
+        FloatUtils.AtomicAdd(ref _mapPtr.Buffer[idx + _mapPtr.Width + 1], -amount * u * v);
     }
 }

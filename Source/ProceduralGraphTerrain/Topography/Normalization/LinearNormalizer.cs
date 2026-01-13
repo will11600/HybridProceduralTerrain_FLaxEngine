@@ -27,7 +27,7 @@ public class LinearNormalizer : GraphComponent, ITopographyPostProcessor
         set => RaiseAndSetIfChanged(ref _max, in value);
     }
 
-    public unsafe void Apply(FlaxEngine.Terrain terrain, FatPointer<float> heightMap, int width)
+    public unsafe void Apply(FlaxEngine.Terrain terrain, FatPointer2D<float> heightMap)
     {
         float min = float.MaxValue;
         float max = float.MinValue;
@@ -43,7 +43,7 @@ public class LinearNormalizer : GraphComponent, ITopographyPostProcessor
         {
             ref float height = ref heightMap.Buffer[i];
             height = Mathf.InverseLerp(min, max, height);
-            Evaluate(i, width, ref height);
+            Evaluate(i, heightMap.Width, ref height);
         }
     }
 

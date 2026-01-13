@@ -1,6 +1,5 @@
 ﻿using FlaxEngine;
 using System.ComponentModel;
-using System.IO;
 using System.Threading.Tasks;
 
 namespace ProceduralGraph.Terrain.Topography.Processors;
@@ -32,16 +31,23 @@ public sealed class BeachProcessor : GraphComponent, ITopographyPostProcessor
         set => RaiseAndSetIfChanged(ref _shoreWidth, in value);
     }
 
-    public unsafe void Apply(FlaxEngine.Terrain terrain, FatPointer<float> heightMap, int width)
+    public unsafe void Apply(FlaxEngine.Terrain terrain, FatPointer2D<float> heightMap)
     {
+        if (heightMap.IsEmpty)
+        {
+            return;
+        }
+
         float seaLevel = SeaLevel;
         int length = heightMap.Length;
         float* heightBuffer = heightMap.Buffer;
         float shoreWidth = ShoreWidth;
 
-        using CoastlineSdf sdf = new(heightMap, width, seaLevel);
+        using CoastlineSdf sdf = new(heightMap, seaLevel);
+        float* sdfBuffer = sdf.Buffer;
+
         Parallel.For(0, sdf.Height, sdf.ProcessRow);
-        Parallel.For(0, width, sdf.ProcessColumn);
+        Parallel.For(0, sdf.Width, sdf.ProcessColumn);
 
         float* sdfBuffer = sdf.Buffer;
         float threshold = ShoreWidth * 2.0f;
@@ -62,12 +68,10 @@ public sealed class BeachProcessor : GraphComponent, ITopographyPostProcessor
             }
             else if (distanceToShoreline <= ShoreWidth)
             {
-                heightBuffer[i] = Mathf.Lerp(seaLevel, height, distanceToShoreline / shoreWidth);
+                    height = Mathf.Lerp(seaLevel, height, distanceToShoreline / shoreWidth);
             }
         }
 
-        string path = Path.Combine(Globals.ProjectFolder, "Coastline SDF.bmp");
-        MapDebug.SaveToBmp(path, sdfBuffer, width, sdf.Height);
     }
 
     private static float DeansFormula(float sedimentStiffness, float distanceToShoreline)

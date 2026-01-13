@@ -4,13 +4,15 @@ using System.Runtime.InteropServices;
 
 namespace ProceduralGraph.Terrain;
 
-public unsafe sealed class FatPointer<T>(int elementCount) : IDisposable where T : unmanaged
+public unsafe class FatPointer<T>(int elementCount) : IDisposable where T : unmanaged
 {
     private bool _disposed;
 
     public int Length { get; } = elementCount;
 
     public T* Buffer { get; private set; } = (T*)NativeMemory.AllocZeroed((nuint)elementCount, (nuint)sizeof(T));
+
+    public bool IsEmpty => Buffer == null || Length == 0;
 
     private void Dispose(bool disposing)
     {

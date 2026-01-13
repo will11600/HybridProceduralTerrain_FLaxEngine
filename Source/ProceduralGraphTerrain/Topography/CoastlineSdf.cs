@@ -5,23 +5,17 @@ using System.Runtime.InteropServices;
 
 namespace ProceduralGraph.Terrain.Topography;
 
-internal sealed class CoastlineSdf(FatPointer<float> heightMap, int width, float seaLevel) : IDisposable
+internal sealed class CoastlineSdf(FatPointer2D<float> heightMap, float seaLevel) : IDisposable
 {
     private const float Infinity = 1e9f;
     private const float Threshold = 1e8f;
 
     private bool _disposed;
 
-    private readonly int _width = width;
-    public int Width => _width;
-
-    private readonly int _height = heightMap.Length / width;
-    public int Height => _height;
-
     private readonly float _seaLevel = seaLevel;
     public float SeaLevel => _seaLevel;
 
-    private readonly FatPointer<float> _heightMap = heightMap;
+    private readonly FatPointer2D<float> _heightMap = heightMap ?? throw new ArgumentNullException(nameof(heightMap));
 
     private readonly FatPointer<float> _sdfMap = new(heightMap.Length);
     public unsafe float* Buffer => _sdfMap.Buffer;
