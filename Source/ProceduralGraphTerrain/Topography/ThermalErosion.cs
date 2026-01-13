@@ -3,13 +3,9 @@ using System.Runtime.CompilerServices;
 
 namespace ProceduralGraph.Terrain.Topography;
 
-internal unsafe sealed class ThermalErosion(float* mapPtr, float talusAngle)
+internal unsafe sealed class ThermalErosion(FatPointer2D<float> mapPtr, float talusAngle)
 {
-    private readonly float* _mapPtr = mapPtr;
-
-    public int Width { get; init; }
-
-    public int Height { get; init; }
+    private readonly FatPointer2D<float> _mapPtr = mapPtr;
 
     public int Seed { get; init; }
 
@@ -24,11 +20,11 @@ internal unsafe sealed class ThermalErosion(float* mapPtr, float talusAngle)
 
         // Pick a random location
         // Restrict RNG to [1, Width-2] to avoid boundary checks
-        int x = 1 + (int)(rng.NextFloat() * (Width - 2));
-        int y = 1 + (int)(rng.NextFloat() * (Height - 2));
-        int idx = y * Width + x;
+        int x = 1 + (int)(rng.NextFloat() * (_mapPtr.Width - 2));
+        int y = 1 + (int)(rng.NextFloat() * (_mapPtr.Height - 2));
+        int idx = y * _mapPtr.Width + x;
 
-        float h = _mapPtr[idx];
+        float h = _mapPtr.Buffer[idx];
         float maxDiff = 0;
         int maxIdx = -1;
 
@@ -36,22 +32,22 @@ internal unsafe sealed class ThermalErosion(float* mapPtr, float talusAngle)
 
         // Right
         int nIdx = idx + 1;
-        float diff = h - _mapPtr[nIdx];
+        float diff = h - _mapPtr.Buffer[nIdx];
         if (diff > maxDiff) { maxDiff = diff; maxIdx = nIdx; }
 
         // Left
         nIdx = idx - 1;
-        diff = h - _mapPtr[nIdx];
+        diff = h - _mapPtr.Buffer[nIdx];
         if (diff > maxDiff) { maxDiff = diff; maxIdx = nIdx; }
 
         // Down
-        nIdx = idx + Width;
-        diff = h - _mapPtr[nIdx];
+        nIdx = idx + _mapPtr.Width;
+        diff = h - _mapPtr.Buffer[nIdx];
         if (diff > maxDiff) { maxDiff = diff; maxIdx = nIdx; }
 
         // Up
-        nIdx = idx - Width;
-        diff = h - _mapPtr[nIdx];
+        nIdx = idx - _mapPtr.Width;
+        diff = h - _mapPtr.Buffer[nIdx];
         if (diff > maxDiff) { maxDiff = diff; maxIdx = nIdx; }
 
         // If slope exceeds the angle of repose, move material
@@ -63,8 +59,8 @@ internal unsafe sealed class ThermalErosion(float* mapPtr, float talusAngle)
             if (amountToMove > maxDiff * 0.5f)
                 amountToMove = maxDiff * 0.5f;
 
-            FloatUtils.AtomicAdd(ref _mapPtr[idx], -amountToMove);
-            FloatUtils.AtomicAdd(ref _mapPtr[maxIdx], amountToMove);
+            FloatUtils.AtomicAdd(ref _mapPtr.Buffer[idx], -amountToMove);
+            FloatUtils.AtomicAdd(ref _mapPtr.Buffer[maxIdx], amountToMove);
         }
     }
 }

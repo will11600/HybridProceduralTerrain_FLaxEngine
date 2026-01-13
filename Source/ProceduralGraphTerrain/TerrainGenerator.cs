@@ -2,8 +2,6 @@
 using FlaxEngine;
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -24,7 +22,7 @@ internal sealed class TerrainGenerator : IGenerator<TerrainGenerator>, IDisposab
     };
 
     private readonly Channel<IPatchMap> _patchMaps;
-    private readonly FatPointer<float> _heightMap;
+    private readonly FatPointer2D<float> _heightMap;
     private readonly IEnumerable<GraphComponent> _components;
     private bool _disposed;
 
@@ -49,7 +47,7 @@ internal sealed class TerrainGenerator : IGenerator<TerrainGenerator>, IDisposab
         Size = (patchCount * patchStride) + Int2.One;
         Patches = new TerrainPatches(patchStride + 1, patchCount, patchStride);
 
-        _heightMap = new FatPointer<float>(Size.X * Size.Y);
+        _heightMap = new FatPointer2D<float>(Size.X, Size.Y);
 
         Scripting.Update += OnUpdate;
     }
@@ -128,7 +126,7 @@ internal sealed class TerrainGenerator : IGenerator<TerrainGenerator>, IDisposab
         await Parallel.ForEachAsync(coordEnumerator, cancellationToken, BuildPatchAsync);
         foreach (ITopographyPostProcessor postProcessor in _topographyPostProcessors)
         {
-            postProcessor.Apply(Target, _heightMap, Size.X);
+            postProcessor.Apply(Target, _heightMap);
         }
         return coordEnumerator;
     }

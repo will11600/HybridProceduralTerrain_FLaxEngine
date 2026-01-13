@@ -5,5 +5,5 @@
 /// </summary>
 public interface ITopographyPostProcessor
 {
-    void Apply(FlaxEngine.Terrain terrain, FatPointer<float> heightMap, int size);
+    void Apply(FlaxEngine.Terrain terrain, FatPointer2D<float> heightMap);
 }
